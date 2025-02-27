@@ -1,6 +1,6 @@
 import { generateBotResponse } from "../services/chatbot.service.js";
 import { fetchYouTubeAudio } from "../helper/fetchYouTubeAudio.js";
-import { transcribeAudio } from "../helper/transcribeAudio.js";
+import { transcribeAudioVideo } from "../helper/transcribeAudioVideo.js";
 
 
 export const getBotResponse = async (req, res) => {
@@ -36,25 +36,25 @@ export const ytToAudio = async (req, res) => {
 };
 
 
-
-export const audioToTranscript = async (req, res) => {
+export const audioVideoToTranscript = async (req, res) => {
     try {
         const { filePath } = req.body;
         console.log('filePath:', req.body);
-        // const filePath = "/path/to/your/audio/file.wav";
+        
         if (!filePath) {
             return res.status(400).json({
-                message: 'Missing audio file path'
+                message: 'Missing media file path'
             });
         }
 
-        const transcript = await transcribeAudio(filePath);
-        res.status(200).json({ transcript });
+        const transcriptData = await transcribeAudioVideo(filePath);
+        res.status(200).json({ transcript: transcriptData });
     }
     catch (error) {
-        console.error('Error transcribing audio:', error);
+        console.error('Error transcribing media:', error);
         res.status(500).json({
-            message: 'Error transcribing audio'
+            message: 'Error transcribing media',
+            error: error.message
         });
     }
 };
