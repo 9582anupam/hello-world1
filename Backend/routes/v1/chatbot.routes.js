@@ -4,6 +4,6 @@ import { getBotResponse, ytToAudio } from "../../controllers/chatbot.controller.
 const router = express.Router();
 
 router.post("/bot-response", getBotResponse);
-router.post("/yt-to-Audio", ytToAudio);
+router.post("/yt-to-audio", ytToAudio);
 
 export default router;

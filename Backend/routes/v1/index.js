@@ -6,8 +6,5 @@ const router = express.Router();
 
 router.use("/users", usersRoutes);
 router.use("/chatbot", chatbotRoutes);
-router.use("/", (req, res) => {
-    res.send("API V1 Running");
-});
 
 export default router;
