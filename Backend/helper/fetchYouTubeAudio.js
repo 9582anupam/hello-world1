@@ -41,7 +41,15 @@ export const fetchYouTubeAudio = async (videoUrl, cookieString = '') => {
     // Parse cookies if provided
     const cookies = cookieString ? parseCookiesFromNetscape(cookieString) : [];
 
-    const info = await ytdl.getBasicInfo(videoUrl, { cookies });
+    // Proxy configuration
+    const proxyUrl = 'http://82.119.96.254:80';
+
+    const info = await ytdl.getBasicInfo(videoUrl, { 
+      cookies,
+      requestOptions: {
+        proxy: proxyUrl
+      }
+    });
     console.log('Video title:', info.videoDetails.title);
     
     const title = info.videoDetails.title.replace(/[^a-zA-Z0-9]/g, "_");
@@ -52,7 +60,10 @@ export const fetchYouTubeAudio = async (videoUrl, cookieString = '') => {
         filter: 'audioonly',
         quality: 'highestaudio',
         highWaterMark: 1 << 25,
-        cookies: cookies  // Add cookies to the options
+        cookies: cookies,
+        requestOptions: {
+          proxy: proxyUrl
+        }
       });
 
       // Add progress logging
