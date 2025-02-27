@@ -24,6 +24,7 @@
     "mongoose-paginate-v2": "^1.9.0",
     "nodemon": "^3.1.7",
     "npm": "^10.9.2",
-    "path": "^0.12.7"
+    "path": "^0.12.7",
+    "youtube-caption-extractor": "^1.4.3"
   }
 }
