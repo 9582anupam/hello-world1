@@ -3,7 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import axios from 'axios'; // Make sure to install this: npm install axios
+import axios from 'axios';
+import { getYouTubeAudioStream } from './enhancedExtraction.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -141,7 +142,12 @@ const hasCookies = cookies && cookies.length > 5; // Need multiple cookies for Y
 
 console.log(`Cookie status: Has ${cookies.length} cookies, sufficient: ${hasCookies}`);
 
-// Use direct method with cookies
+// Determine if we're in production environment
+const isProduction = process.env.NODE_ENV === 'production' || 
+                    process.env.VERCEL || 
+                    process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+// Main function to fetch YouTube audio
 export const fetchYouTubeAudio = async (videoUrl) => {
   try {
     if (!ytdl.validateURL(videoUrl)) {
@@ -149,11 +155,87 @@ export const fetchYouTubeAudio = async (videoUrl) => {
     }
 
     const videoId = ytdl.getURLVideoID(videoUrl);
-    console.log('Fetching video ID:', videoId);
+    console.log(`Fetching video ID: ${videoId}, environment: ${isProduction ? 'production' : 'development'}`);
+
+    // In production, use the enhanced extraction first
+    if (isProduction) {
+      try {
+        console.log('Using production-optimized extraction method');
+        
+        // Get the audio stream info using our enhanced methods
+        const { url: streamUrl, title } = await getYouTubeAudioStream(videoId, cookies);
+        
+        console.log('Stream URL obtained, title:', title);
+        
+        // Create safe filename and prepare path
+        const safeTitle = title.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 50);
+        const filePath = path.resolve(__dirname, `../temp/${safeTitle}.mp3`);
+        
+        // Ensure temp directory exists
+        const tempDir = path.resolve(__dirname, '../temp');
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
+        // Download the file
+        await new Promise((resolve, reject) => {
+          console.log('Starting direct download...');
+          
+          axios({
+            method: 'GET',
+            url: streamUrl,
+            responseType: 'stream',
+            timeout: 30000,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+              'Accept': '*/*',
+              'Origin': 'https://www.youtube.com',
+              'Referer': 'https://www.youtube.com/'
+            }
+          })
+          .then(response => {
+            const writer = fs.createWriteStream(filePath);
+            
+            let downloaded = 0;
+            const totalSize = parseInt(response.headers['content-length'] || 0);
+            
+            response.data.on('data', (chunk) => {
+              downloaded += chunk.length;
+              if (totalSize) {
+                const percent = (downloaded / totalSize * 100).toFixed(2);
+                console.log(`Production download: ${percent}%`);
+              }
+            });
+            
+            response.data.pipe(writer);
+            
+            writer.on('finish', () => {
+              console.log('Production download complete!');
+              resolve(filePath);
+            });
+            
+            writer.on('error', (err) => {
+              console.error('Writer error:', err);
+              reject(err);
+            });
+          })
+          .catch(err => {
+            console.error('Axios download error:', err);
+            reject(err);
+          });
+        });
+        
+        return filePath;
+        
+      } catch (enhancedError) {
+        console.error('Enhanced production method failed:', enhancedError.message);
+        console.log('Falling back to standard methods...');
+      }
+    }
     
-    // First attempt: Try using ytdl
+    // Fall back to standard methods (ytdl first, then direct)
     try {
-      console.log('Trying primary method with ytdl...');
+      console.log('Using standard ytdl method...');
       
       const info = await ytdl.getBasicInfo(videoUrl, { 
         cookies,
@@ -225,8 +307,8 @@ export const fetchYouTubeAudio = async (videoUrl) => {
       });
       
     } catch (ytdlError) {
-      console.error('Primary method failed:', ytdlError.message);
-      console.log('Trying alternative direct method...');
+      console.error('Standard ytdl method failed:', ytdlError.message);
+      console.log('Trying direct extraction fallback...');
       
       // Second attempt: Try direct stream URL extraction
       const { url: streamUrl, title } = await getDirectStreamURLs(videoId, cookies);
@@ -291,6 +373,7 @@ export const fetchYouTubeAudio = async (videoUrl) => {
         });
       });
     }
+    
   } catch (err) {
     console.error("Error in YouTube fetch:", err);
     throw err;
