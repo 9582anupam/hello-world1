@@ -1,124 +1,70 @@
-// import logo from "../../../utils/images/footer/logo.svg";
-// import location from "../../../utils/images/footer/location.svg";
-import headphones from "../../../utils/images/footer/headphones.svg";
-import mail from "../../../utils/images/footer/mail.svg";
-import instagram from "../../../utils/images/footer/instagram.png";
-import facebook from "../../../utils/images/footer/facebook.png";
-import youtube from "../../../utils/images/footer/youtube.png";
-import x from "../../../utils/images/footer/twitter.png";
-import { Link } from "react-router-dom";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import "./footer.css";
+import React from 'react';
+import { Brain, Twitter, Linkedin, Github, Instagram } from 'lucide-react';
 
 const Footer = () => {
-    const quickLinks = [
-        "about",
-        "contact",
-        "privacy policy",
-        "terms & conditions",
-        "account",
-    ];
-    const categories = [
-        "page 1",
-        "page 2",
-        "page 3",
-        "page 4",
-        "page 5",
-        "page 6",
-    ];
-    const socialMedia = [facebook, x, instagram, youtube];
-
     return (
-        <footer className="flex flex-col font-raleway ">
-            <div className="flex bg-white justify-center py-8">
-                <div className="flex flex-wrap gap-6 px-6 md:w-11/12 lg:w-10/12 justify-between">
-                    <div className="flex flex-col gap-2">
-                        {/* <img src={logo} alt="logo" />
-                        <div className="flex gap-2">
-                            <img
-                                src={location}
-                                alt="location"
-                                className="w-6 h-6"
-                            />
-                            <p className="leading-5 font-medium">
-                                <span className="font-bold">Address: </span>Shop
-                                No. 10, lorem ipsum,
-                                <br /> opp. to lorem, ipsum, Delhi 946254
-                            </p>
-                        </div> */}
-                        <div className="flex gap-2">
-                            {/* headphones img */}
-                            <img src={headphones} alt="headphones" />
-                            <p className="font-medium">
-                                <span className="font-bold">Phone: </span>+91
-                                1234567890
-                            </p>
-                        </div>
-                        <div className="flex gap-2">
-                            {/* mail img */}
-                            <img src={mail} alt="mail" />
-                            <p className="font-medium">
-                                <span className="font-bold">Email: </span>
-                                9582anupamk@gmail.com
-                            </p>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-3xl mb-3">Quick Links</h3>
-                        <div className="flex flex-col gap-1">
-                            {quickLinks.map((link, index) => (
-                                <p
-                                    key={index}
-                                    className="text-lg font-medium cursor-pointer w-fit">
-                                    {link}
-                                </p>
-                            ))}
-                        </div>
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-3xl mb-3">Categories</h3>
-                        <div className="flex flex-col gap-1">
-                            {categories.map((category, index) => (
-                                <p
-                                    key={index}
-                                    className="text-lg font-medium cursor-pointer w-fit">
-                                    {category}
-                                </p>
-                            ))}
-                        </div>
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-3xl mb-3">Connect</h3>
-                        <div className="flex gap-2 cursor-pointer">
-                            {socialMedia.map((icon, index) => (
-                                <div key={index}>
-                                    <img
-                                        src={icon}
-                                        alt={index}
-                                        className="w-8"
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+        <footer className="bg-slate-950 pt-16 pb-8 border-t border-cyan-900/30">
+        <div className="container mx-auto px-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+            <div>
+                <div className="flex items-center mb-4">
+                <Brain className="h-8 w-8 text-cyan-500" />
+                <span className="ml-2 text-xl font-bold bg-gradient-to-r from-cyan-400 to-indigo-500 bg-clip-text text-transparent">AssessGenAI</span>
+                </div>
+                <p className="text-slate-400 mb-4">
+                Transform any content into engaging assessments with the power of AI.
+                </p>
+                <div className="flex space-x-4">
+                <a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">
+                    <Twitter className="h-5 w-5" />
+                </a>
+                <a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">
+                    <Linkedin className="h-5 w-5" />
+                </a>
+                <a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">
+                    <Github className="h-5 w-5" />
+                </a>
+                <a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">
+                    <Instagram className="h-5 w-5" />
+                </a>
                 </div>
             </div>
-            <div className="bg-[#000] w-full flex justify-center items-center flex-col">
-                <p className="text-white mt-2 font-poppins font-medium text-xl">
-                    &copy; 2025 Harmoni-AI. All rights reserved.
-                </p>
-                <Link
-                    to="https://www.linkedin.com/in/9582anupam"
-                    className="flex items-center gap-2 mb-2">
-                    <p className="font-mono font-bold text-xl py-1">
-                        <span className="shiny-text text-[#FF0000]">
-                            Developed by @9582anupam
-                        </span>
-                        {/* white color icon */}
-                        <OpenInNewIcon className="w-6 h-6 text-white ml-1 " />
-                    </p>
-                </Link>
+            
+            <div>
+                <h3 className="text-lg font-semibold mb-4 text-slate-100">Product</h3>
+                <ul className="space-y-2">
+                <li><a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">Features</a></li>
+                <li><a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">Pricing</a></li>
+                <li><a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">Testimonials</a></li>
+                <li><a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">FAQ</a></li>
+                </ul>
             </div>
+            
+            <div>
+                <h3 className="text-lg font-semibold mb-4 text-slate-100">Resources</h3>
+                <ul className="space-y-2">
+                <li><a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">Documentation</a></li>
+                <li><a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">Blog</a></li>
+                <li><a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">Community</a></li>
+                <li><a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">Support</a></li>
+                </ul>
+            </div>
+            
+            <div>
+                <h3 className="text-lg font-semibold mb-4 text-slate-100">Company</h3>
+                <ul className="space-y-2">
+                <li><a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">About Us</a></li>
+                <li><a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">Careers</a></li>
+                <li><a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">Privacy Policy</a></li>
+                <li><a href="/terms-of-service" className="text-slate-400 hover:text-cyan-400 transition-colors">Terms of Service</a></li>
+                </ul>
+            </div>
+            </div>
+            
+            <div className="pt-8 border-t border-slate-800 text-center text-slate-500 text-sm">
+            <p>&copy; {new Date().getFullYear()} AssessGenAI. All rights reserved.</p>
+            </div>
+        </div>
         </footer>
     );
 };
