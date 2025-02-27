@@ -9,24 +9,59 @@ import {
     IconButton,
     ThemeProvider,
     createTheme,
+    InputAdornment,
 } from "@mui/material";
 import { styled } from "@mui/system";
 import { Link, useNavigate } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { Mail, Lock, User, KeyRound } from 'lucide-react';
 import "./auth.css";
 import axios from "axios";
 
-// Define the custom theme
+// Define the custom theme to match the landing page
 const theme = createTheme({
     palette: {
         primary: {
-            main: "#74B83E", // Primary color
+            main: "#22d3ee", // Cyan-500
         },
         secondary: {
-            main: "#52BD39", // Secondary color
+            main: "#6366f1", // Indigo-500
         },
         background: {
-            default: "#F5FBF4", // Background color
+            default: "#0f172a", // Slate-900
+            paper: "#1e293b", // Slate-800
+        },
+        text: {
+            primary: "#f1f5f9", // Slate-100
+            secondary: "#94a3b8", // Slate-400
+        },
+        error: {
+            main: "#ef4444", // Red-500
+        },
+    },
+    components: {
+        MuiTextField: {
+            styleOverrides: {
+                root: {
+                    '& .MuiOutlinedInput-root': {
+                        '& fieldset': {
+                            borderColor: 'rgba(34, 211, 238, 0.3)',
+                        },
+                        '&:hover fieldset': {
+                            borderColor: 'rgba(34, 211, 238, 0.5)',
+                        },
+                        '&.Mui-focused fieldset': {
+                            borderColor: '#22d3ee',
+                        },
+                    },
+                    '& .MuiInputLabel-root': {
+                        color: '#94a3b8',
+                    },
+                    '& .MuiInputBase-input': {
+                        color: '#f1f5f9',
+                    },
+                },
+            },
         },
     },
 });
@@ -39,6 +74,14 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
     maxWidth: 400,
     margin: "auto",
     textAlign: "center",
+    backgroundColor: "#1e293b", // Slate-800
+    borderRadius: "0.75rem",
+    border: "1px solid rgba(34, 211, 238, 0.2)",
+    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+    "&:hover": {
+        boxShadow: "0 0 15px rgba(34, 211, 238, 0.2)",
+    },
+    transition: "all 0.3s ease",
 }));
 
 const StyledForm = styled("form")(({ theme }) => ({
@@ -48,7 +91,26 @@ const StyledForm = styled("form")(({ theme }) => ({
 
 const SubmitButton = styled(Button)(({ theme }) => ({
     margin: theme.spacing(3, 0, 2),
+    background: "linear-gradient(to right, #22d3ee, #6366f1)",
+    color: "white",
+    fontWeight: "bold",
+    padding: "10px 0",
+    "&:hover": {
+        background: "linear-gradient(to right, #0891b2, #4f46e5)",
+        boxShadow: "0 0 15px rgba(34, 211, 238, 0.3)",
+    },
+    transition: "all 0.3s ease",
 }));
+
+// const GoogleButton = styled(Button)(({ theme }) => ({
+//     margin: theme.spacing(2, 0),
+//     borderColor: "rgba(34, 211, 238, 0.5)",
+//     color: "#f1f5f9",
+//     "&:hover": {
+//         borderColor: "#22d3ee",
+//         backgroundColor: "rgba(34, 211, 238, 0.1)",
+//     },
+// }));
 
 const Signup = () => {
     const [name, setName] = useState("");
@@ -108,32 +170,38 @@ const Signup = () => {
         }
     };
 
-    const handleGoogleSignUp = async () => {
-        // Handle Google sign-up logic here
-    };
-
     return (
         <ThemeProvider theme={theme}>
-            <div className="h-[calc(100svh-5rem)] flex justify-center items-center">
+            <div className="h-[calc(100svh-5rem)] flex justify-center items-center bg-slate-950">
                 <Container component="main" maxWidth="xs" className="relative">
                     <StyledPaper elevation={3}>
-                        <div className="flex items-center">
+                        <div className="flex items-center w-full relative">
                             <IconButton
                                 onClick={() => navigate("/")}
-                                color="inherit"
+                                color="primary"
                                 size="small"
-                                sx={{ position: "absolute", left: "2rem" }}>
+                                sx={{ position: "absolute", left: "0" }}>
                                 <ArrowBackIcon
-                                    sx={{ height: "35px", width: "35px" }}
+                                    sx={{ height: "28px", width: "28px" }}
                                 />
                             </IconButton>
                             <Typography
-                                variant="h5"
+                                variant="h4"
                                 gutterBottom
-                                sx={{ fontWeight: "bold" }}>
+                                sx={{ 
+                                    fontWeight: "bold", 
+                                    margin: "0 auto",
+                                    background: "linear-gradient(to right, #22d3ee, #6366f1)",
+                                    backgroundClip: "text",
+                                    WebkitBackgroundClip: "text",
+                                    WebkitTextFillColor: "transparent",
+                                }}>
                                 Sign Up
                             </Typography>
                         </div>
+                        
+                        <div className="w-24 h-1 bg-gradient-to-r from-cyan-500 to-indigo-600 mx-auto mb-6"></div>
+                        
                         <StyledForm noValidate onSubmit={handleSubmit}>
                             <TextField
                                 variant="outlined"
@@ -149,6 +217,13 @@ const Signup = () => {
                                 onChange={(e) => setName(e.target.value)}
                                 error={isSubmitted && !!nameError}
                                 helperText={isSubmitted && nameError}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <User size={20} color="#22d3ee" />
+                                        </InputAdornment>
+                                    ),
+                                }}
                             />
                             <TextField
                                 variant="outlined"
@@ -163,6 +238,13 @@ const Signup = () => {
                                 onChange={(e) => setEmail(e.target.value)}
                                 error={isSubmitted && !!emailError}
                                 helperText={isSubmitted && emailError}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <Mail size={20} color="#22d3ee" />
+                                        </InputAdornment>
+                                    ),
+                                }}
                             />
                             <TextField
                                 variant="outlined"
@@ -177,6 +259,13 @@ const Signup = () => {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 error={isSubmitted && !!passwordError}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <Lock size={20} color="#22d3ee" />
+                                        </InputAdornment>
+                                    ),
+                                }}
                             />
                             <TextField
                                 variant="outlined"
@@ -194,12 +283,20 @@ const Signup = () => {
                                 }
                                 error={isSubmitted && !!passwordError}
                                 helperText={isSubmitted && passwordError}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <KeyRound size={20} color="#22d3ee" />
+                                        </InputAdornment>
+                                    ),
+                                }}
                             />
                             {error && (
                                 <Typography
                                     color="error"
                                     variant="body2"
-                                    align="center">
+                                    align="center"
+                                    sx={{ mt: 1 }}>
                                     {error}
                                 </Typography>
                             )}
@@ -207,24 +304,15 @@ const Signup = () => {
                                 type="submit"
                                 fullWidth
                                 variant="contained"
-                                color="primary"
-                                sx={{ color: "white" }}>
+                                disableElevation>
                                 Sign Up
                             </SubmitButton>
-                            <Button
-                                fullWidth
-                                variant="outlined"
-                                color="primary"
-                                onClick={handleGoogleSignUp}
-                                sx={{ marginTop: 2 }}>
-                                Sign Up with Google
-                            </Button>
                             <Box mt={2}>
-                                <Typography variant="body2">
+                                <Typography variant="body2" sx={{ color: "#94a3b8" }}>
                                     Already have an account?{" "}
                                     <Link
                                         to="/login"
-                                        className="text-[#00aaff] text-lg">
+                                        className="text-cyan-400 hover:text-cyan-300 transition-colors">
                                         Sign In
                                     </Link>
                                 </Typography>

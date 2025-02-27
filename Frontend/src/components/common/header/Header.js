@@ -1,5 +1,5 @@
 import React, { useState, useContext, useRef, useEffect } from "react";
-import { Brain, Menu, X, User } from "lucide-react";
+import { Brain, Menu, X, LogOut, UserCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { UserContext } from "../../../context/UserContext";
 import userAuthenticatedAxiosInstance from "../../../services/users/userAuthenticatedAxiosInstance";
@@ -83,24 +83,35 @@ const Header = () => {
                 <div className="relative" ref={profileRef}>
                     <button
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
-                    className="bg-white text-black rounded-full p-2 hover:bg-gray-100 transition-colors"
+                    className="bg-gradient-to-r from-cyan-500 to-indigo-600 rounded-full p-2 hover:shadow-lg hover:shadow-cyan-500/30 transition-all duration-300"
                     >
-                    <User size={24} className="text-[#74B83E]" />
+                    <UserCircle size={24} className="text-white" />
                     </button>
                     {isProfileOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                    <div className="absolute right-0 mt-2 w-56 bg-slate-900 rounded-xl shadow-xl py-2 z-50 border border-cyan-900/30 overflow-hidden">
                         <Link
                         to="/profile"
-                        className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                        className="flex items-center px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-cyan-400 transition-colors"
                         onClick={() => setIsProfileOpen(false)}
                         >
-                        Profile
+                            <UserCircle size={18} className="mr-2" />
+                            Profile
                         </Link>
+                        {/* <Link
+                        to="/settings"
+                        className="flex items-center px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-cyan-400 transition-colors"
+                        onClick={() => setIsProfileOpen(false)}
+                        >
+                            <Settings size={18} className="mr-2" />
+                            Settings
+                        </Link> */}
+                        <div className="border-t border-slate-800 my-1"></div>
                         <button
                         onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
+                        className="flex items-center w-full text-left px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-red-400 transition-colors"
                         >
-                        Logout
+                            <LogOut size={18} className="mr-2" />
+                            Logout
                         </button>
                     </div>
                     )}
@@ -135,12 +146,14 @@ const Header = () => {
                 <Link to="#rewards" className="text-slate-300 hover:text-cyan-400 transition-colors">
                     Rewards
                 </Link>
-                <Link
-                    to="/login"
-                    className="bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-600 hover:to-indigo-700 text-white px-5 py-2 rounded-md transition-all shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 w-full"
-                >
-                    Sign In
-                </Link>
+                {!isUserLoggedIn && (
+                    <Link
+                        to="/login"
+                        className="bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-600 hover:to-indigo-700 text-white px-5 py-2 rounded-md transition-all shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 w-full text-center"
+                    >
+                        Sign In
+                    </Link>
+                )}
                 </div>
             </div>
             )}
