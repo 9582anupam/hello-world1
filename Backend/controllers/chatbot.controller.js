@@ -1,5 +1,5 @@
 import { generateBotResponse } from "../services/chatbot.service.js";
-import { getSubtitles, getVideoDetails } from 'youtube-caption-extractor';
+import { getSubtitles } from 'youtube-captions-scraper';
 
 
 export const getBotResponse = async (req, res) => {
@@ -27,16 +27,3 @@ export const fetchSubtitles = async (req, res) => {
     }
 };
 
-// Fetching Video Details
-export const fetchVideoDetails = async (req, res) => {
-    const { videoID = "JC82Il2cjqA", lang = 'en' } = req.query;
-    try {
-        const videoDetails = await getVideoDetails({ videoID, lang });
-        res.status(200).json({ videoDetails });
-    } catch (error) {
-        console.error('Error fetching video details:', error);
-        res.status(500).json({ 
-            message: 'Error fetching video details' 
-        });
-    }
-};

@@ -25,6 +25,8 @@
     "nodemon": "^3.1.7",
     "npm": "^10.9.2",
     "path": "^0.12.7",
-    "youtube-caption-extractor": "^1.4.3"
+    "youtube-caption-extractor": "^1.4.3",
+    "youtube-captions-scraper": "^2.0.3",
+    "youtube-subs": "^1.1.0"
   }
 }
