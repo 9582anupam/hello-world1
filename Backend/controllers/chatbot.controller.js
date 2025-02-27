@@ -1,6 +1,7 @@
 import { generateBotResponse } from "../services/chatbot.service.js";
 import { fetchYouTubeAudio } from "../helper/fetchYouTubeAudio.js";
 import fs from 'fs';
+import path from 'path';
 
 export const getBotResponse = async (req, res) => {
     try {
@@ -15,7 +16,7 @@ export const getBotResponse = async (req, res) => {
 };
 
 export const ytToAudio = async (req, res) => {
-    // Increased timeout for the overall process
+    // Set an early timeout to avoid gateway timeouts
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => {
         abortController.abort();
@@ -23,22 +24,11 @@ export const ytToAudio = async (req, res) => {
             message: 'Processing timed out',
             error: 'Server response timeout. Please try again or try a different video.'
         });
-    }, 45000); // 45 second max timeout
+    }, 45000);
 
     try {
         const videoUrl = req.query.videoUrl || "https://www.youtube.com/watch?v=JC82Il2cjqA";
         console.log('Processing URL:', videoUrl);
-        
-        // Check if video URL is for a short video (suitable for serverless)
-        if (req.query.videoUrl && !req.query.force) {
-            try {
-                const videoId = videoUrl.split('v=')[1].split('&')[0];
-                // You could implement a quick check here to verify video length
-                console.log(`Processing video ID: ${videoId}`);
-            } catch (e) {
-                console.error('Error parsing video URL:', e);
-            }
-        }
         
         // Start audio fetch
         const audioPath = await fetchYouTubeAudio(videoUrl);
@@ -54,23 +44,54 @@ export const ytToAudio = async (req, res) => {
         // Get file stats for content-length
         const stat = fs.statSync(audioPath);
         
-        // Set headers
-        res.writeHead(200, {
-            'Content-Type': 'audio/mpeg',
-            'Content-Length': stat.size,
-            'Content-Disposition': 'attachment; filename="audio.mp3"'
-        });
-
-        // Stream the file
-        const readStream = fs.createReadStream(audioPath);
-        readStream.pipe(res);
+        // Handle range requests for better streaming
+        const range = req.headers.range;
+        
+        if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+            const chunkSize = (end - start) + 1;
+            
+            console.log(`Range request: ${start}-${end}/${stat.size}`);
+            
+            res.writeHead(206, {
+                'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': chunkSize,
+                'Content-Type': 'audio/mpeg'
+            });
+            
+            const stream = fs.createReadStream(audioPath, { start, end });
+            stream.pipe(res);
+        } else {
+            // Set headers for full file download/preview
+            res.writeHead(200, {
+                'Content-Length': stat.size,
+                'Content-Type': 'audio/mpeg',
+                'Accept-Ranges': 'bytes',
+                'Cache-Control': 'no-cache',
+                'X-Content-Type-Options': 'nosniff',
+                // Use inline for preview in browser, attachment for download
+                'Content-Disposition': req.query.download 
+                    ? 'attachment; filename="audio.mp3"' 
+                    : 'inline'
+            });
+            
+            // Stream the file
+            fs.createReadStream(audioPath).pipe(res);
+        }
 
         // Optional: Clean up temp file after sending
-        readStream.on('end', () => {
-            fs.unlink(audioPath, (err) => {
-                if (err) console.error('Error deleting temp file:', err);
-            });
+        res.on('close', () => {
+            // Wait slightly before deleting to ensure transfer completes
+            setTimeout(() => {
+                fs.unlink(audioPath, (err) => {
+                    if (err) console.error('Error deleting temp file:', err);
+                });
+            }, 1000);
         });
+        
     } catch (error) {
         clearTimeout(timeoutId);
         console.error('Error fetching YouTube audio:', error);
