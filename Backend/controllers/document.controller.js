@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { extractTextFromPdfFile } from '../helper/pdfToText.js';
+import { extractTextFromPptFile } from '../helper/pptToText.js';
 import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
@@ -28,11 +29,17 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-    // Accept only PDFs
-    if (file.mimetype === 'application/pdf') {
+    // Accept PDF and PowerPoint files
+    const allowedMimeTypes = [
+        'application/pdf',                     // PDF
+        'application/vnd.ms-powerpoint',       // PPT
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation' // PPTX
+    ];
+
+    if (allowedMimeTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Only PDF files are allowed'), false);
+        cb(new Error('Only PDF and PowerPoint files are allowed'), false);
     }
 };
 
@@ -40,21 +47,21 @@ export const upload = multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 10 * 1024 * 1024 // 10 MB file size limit
+        fileSize: 15 * 1024 * 1024 // 15 MB file size limit
     }
 });
 
 /**
- * Controller function to handle PDF upload and text extraction
+ * Controller function to handle document upload and text extraction
  */
-export const processPdf = async (req, res) => {
+export const processDocument = async (req, res) => {
     const timeoutId = setTimeout(() => {
         res.status(504).json({
             success: false,
             message: 'Processing timed out',
             error: 'The request took too long to process. Please try with a smaller file.'
         });
-    }, 120000); // 2 minute timeout for large files
+    }, 180000); // 3 minute timeout for large files
 
     try {
         // Check if file was uploaded
@@ -62,22 +69,47 @@ export const processPdf = async (req, res) => {
             clearTimeout(timeoutId);
             return res.status(400).json({
                 success: false,
-                message: 'No PDF file provided',
-                error: 'Please upload a PDF file'
+                message: 'No document file provided',
+                error: 'Please upload a PDF or PowerPoint file'
             });
         }
 
         const filePath = req.file.path;
+        const fileType = req.file.mimetype;
+        const fileName = req.file.originalname;
         const useOcr = req.body.useOcr === 'true' || req.body.useOcr === true;
 
-        console.log(`Processing PDF: ${filePath}, Force OCR: ${useOcr}`);
+        console.log(`Processing document: ${fileName}, Type: ${fileType}, OCR: ${useOcr}`);
 
-        // Extract text from PDF
-        const extractedText = await extractTextFromPdfFile(filePath, useOcr);
+        let result;
+
+        // Extract text based on file type
+        if (fileType === 'application/pdf') {
+            const extractedText = await extractTextFromPdfFile(filePath, useOcr);
+            result = {
+                text: extractedText,
+                length: extractedText.length,
+                format: 'pdf',
+                fileName: fileName
+            };
+        }
+        else if (fileType === 'application/vnd.ms-powerpoint' ||
+            fileType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+            const pptResult = await extractTextFromPptFile(filePath);
+            result = {
+                ...pptResult,
+                format: fileType === 'application/vnd.ms-powerpoint' ? 'ppt' : 'pptx',
+                fileName: fileName,
+                length: pptResult.allText.length
+            };
+        }
+        else {
+            throw new Error(`Unsupported file type: ${fileType}`);
+        }
 
         clearTimeout(timeoutId);
 
-        // Optional: Delete the uploaded file after processing
+        // Delete the uploaded file after processing
         try {
             fs.unlinkSync(filePath);
         } catch (err) {
@@ -88,44 +120,72 @@ export const processPdf = async (req, res) => {
         // Send response with extracted text
         res.status(200).json({
             success: true,
-            text: extractedText,
-            length: extractedText.length,
-            message: 'PDF processed successfully'
+            message: 'Document processed successfully',
+            ...result
         });
 
     } catch (error) {
         clearTimeout(timeoutId);
-        console.error('Error processing PDF:', error);
+        console.error('Error processing document:', error);
+
+        // Delete the uploaded file in case of error
+        if (req.file && fs.existsSync(req.file.path)) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (deleteError) {
+                console.error('Error deleting uploaded file:', deleteError);
+            }
+        }
 
         res.status(500).json({
             success: false,
-            message: 'Error processing PDF',
+            message: 'Error processing document',
             error: error.message
         });
     }
 };
 
-/**
- * Controller function to get processing status (in case we implement async processing)
- */
-export const getProcessingStatus = async (req, res) => {
-    try {
-        const { jobId } = req.params;
+// Maintain backward compatibility with the old PDF-specific endpoint
+export const processPdf = async (req, res) => {
+    return processDocument(req, res);
+};
 
-        // For now, this is a placeholder for future async processing
+/**
+ * Get information about supported file formats
+ */
+export const getSupportedFormats = async (req, res) => {
+    try {
         res.status(200).json({
             success: true,
-            jobId,
-            status: 'completed',
-            message: 'PDF processing is complete'
+            formats: [
+                {
+                    type: 'pdf',
+                    extensions: ['.pdf'],
+                    mimeTypes: ['application/pdf'],
+                    maxSize: '15MB',
+                    description: 'PDF documents (text-based and scanned)'
+                },
+                {
+                    type: 'ppt',
+                    extensions: ['.ppt'],
+                    mimeTypes: ['application/vnd.ms-powerpoint'],
+                    maxSize: '15MB',
+                    description: 'PowerPoint presentations (older format)'
+                },
+                {
+                    type: 'pptx',
+                    extensions: ['.pptx'],
+                    mimeTypes: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+                    maxSize: '15MB',
+                    description: 'PowerPoint presentations (modern format)'
+                }
+            ]
         });
-
     } catch (error) {
-        console.error('Error getting processing status:', error);
-
+        console.error('Error retrieving supported formats:', error);
         res.status(500).json({
             success: false,
-            message: 'Error getting processing status',
+            message: 'Error retrieving supported formats',
             error: error.message
         });
     }
