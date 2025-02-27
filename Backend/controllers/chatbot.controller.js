@@ -1,6 +1,5 @@
 import { generateBotResponse } from "../services/chatbot.service.js";
 import { fetchYouTubeAudio } from "../helper/fetchYouTubeAudio.js";
-import { loadCookies } from "../helper/loadCookies.js";
 import fs from 'fs';
 
 export const getBotResponse = async (req, res) => {
@@ -18,8 +17,7 @@ export const getBotResponse = async (req, res) => {
 export const ytToAudio = async (req, res) => {
     try {
         const videoUrl = req.query.videoUrl || "https://www.youtube.com/watch?v=eEWa7cpiyD8";
-        const cookieString = loadCookies();
-        const audioPath = await fetchYouTubeAudio(videoUrl, cookieString);
+        const audioPath = await fetchYouTubeAudio(videoUrl);
 
         // Check if file exists
         if (!fs.existsSync(audioPath)) {
