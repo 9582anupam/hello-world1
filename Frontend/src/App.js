@@ -17,22 +17,12 @@ function App() {
     return (
         <BrowserRouter>
             <UserProvider>
-                <div className="App">
+                <div className="min-h-screen bg-slate-950 text-white">
                     <Toaster position="bottom-right" />
 
                     {/* HEADER-NAVBAR-SIDEBAR */}
                     <div className="fixed z-40 w-full">
-                        {/* <div
-                            className={`${isSidebarActive ? "active" : ""
-                                } sidebar-parent z-50`}
-                            ref={sidebarRef}>
-                            <Sidebar />
-                        </div> */}
                         <Header />
-                        {/* <NavBar />
-                        <div className="min-h-12 md:hidden block">
-                            <SearchBar size={"medium"} />
-                        </div> */}
                     </div>
 
 
