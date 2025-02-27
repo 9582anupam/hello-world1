@@ -7,7 +7,8 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// const agent = ytdl.createProxyAgent({ uri: "" });
+// Create the proxy agent as per the docs
+const agent = ytdl.createProxyAgent({ uri: 'http://45.77.111.135:80' });
 
 export const fetchYouTubeAudio = async (videoUrl) => {
     try {
@@ -18,14 +19,7 @@ export const fetchYouTubeAudio = async (videoUrl) => {
         const videoId = ytdl.getURLVideoID(videoUrl);
         console.log('Fetching video ID:', videoId);
 
-        // Proxy configuration
-        const proxyUrl = 'http://198.105.101.92';
-
-        const info = await ytdl.getBasicInfo(videoUrl, {
-            requestOptions: {
-                proxy: proxyUrl
-            }
-        });
+        const info = await ytdl.getBasicInfo(videoUrl, { agent });
         console.log('Video title:', info.videoDetails.title);
 
         const title = info.videoDetails.title.replace(/[^a-zA-Z0-9]/g, "_");
@@ -36,9 +30,7 @@ export const fetchYouTubeAudio = async (videoUrl) => {
                 filter: 'audioonly',
                 quality: 'highestaudio',
                 highWaterMark: 1 << 25,
-                requestOptions: {
-                    proxy: proxyUrl
-                }
+                agent // Pass the agent here
             });
 
             // Add progress logging
