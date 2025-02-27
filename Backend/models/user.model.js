@@ -58,6 +58,15 @@ const userSchema = new mongoose.Schema(
             enum: ['male', 'female', 'other'],
         },
 
+        tokens: {
+            type: Number,
+        },
+
+        questionsCreated: {
+            type: [mongoose.Schema.Types.ObjectId],
+            ref: "Question",
+        }
+
     },
 
     { timestamps: true }
