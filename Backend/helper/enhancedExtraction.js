@@ -190,9 +190,9 @@ export const extractYouTubePlayerData = async (videoId, cookies = []) => {
   // --- Method B: TV API ---
   try {
     console.log('Trying TV API extraction...');
-    
+    const api = process.env.GEMINI_API_KEY;
     const response = await axios.post(
-      'https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+      `https://www.youtube.com/youtubei/v1/player?key=${GEMINI_API_KEY}`,
       {
         videoId,
         context: {
