@@ -20,18 +20,62 @@ if (!fs.existsSync(TEMP_DIR)) {
 }
 
 // OCR Space API key
-const OCR_API_KEY = process.env.OCR_API_KEY || 'K89659528088957';
+const OCR_API_KEY = process.env.OCR_API_KEY;
 
 /**
  * Extract text directly from PDF using pdf-parse (no OCR)
+ * Split content by pages
  * @param {Buffer} pdfBuffer - PDF file buffer
- * @returns {Promise<string>} Extracted text
+ * @returns {Promise<Object>} Object with text by pages and full text
  */
 const extractTextFromPDF = async (pdfBuffer) => {
     try {
         console.log('Extracting text directly from PDF...');
-        const data = await pdf(pdfBuffer);
-        return data.text;
+        
+        // Configure render options to track page breaks
+        const renderOptions = {
+            pagerender: function(pageData) {
+                // Return text content from this page
+                return pageData.getTextContent()
+                    .then(function(textContent) {
+                        let lastY = null;
+                        let text = '';
+                        
+                        // Process each text item
+                        for (const item of textContent.items) {
+                            // Add newlines for vertical position changes
+                            if (lastY !== null && lastY !== item.transform[5]) {
+                                text += '\n';
+                            }
+                            text += item.str;
+                            lastY = item.transform[5];
+                        }
+                        
+                        return text;
+                    });
+            }
+        };
+        
+        // Parse PDF with custom renderer
+        const data = await pdf(pdfBuffer, renderOptions);
+        
+        // Extract text from each page
+        const pages = [];
+        for (let i = 0; i < data.numpages; i++) {
+            const pageNum = i + 1;
+            const pageText = data.text.split(/\f/)[i] || '';
+            
+            pages.push({
+                pageNumber: pageNum,
+                text: pageText.trim()
+            });
+        }
+        
+        return {
+            allText: data.text,
+            pageCount: data.numpages,
+            pages: pages
+        };
     } catch (error) {
         console.error('Error in direct PDF text extraction:', error);
         throw new Error(`Failed to extract text from PDF: ${error.message}`);
@@ -40,8 +84,9 @@ const extractTextFromPDF = async (pdfBuffer) => {
 
 /**
  * Process PDF with OCR using OCR.space API
+ * Returns text by page
  * @param {string} pdfPath - Path to PDF file
- * @returns {Promise<string>} Extracted text
+ * @returns {Promise<Object>} Object with text by pages and full text
  */
 const processPDFWithOCR = async (pdfPath) => {
     try {
@@ -56,6 +101,7 @@ const processPDFWithOCR = async (pdfPath) => {
         formData.append('scale', 'true');
         formData.append('detectOrientation', 'true');
         formData.append('OCREngine', '2'); // More accurate OCR engine
+        formData.append('isTable', 'true'); // Better table detection
 
         const response = await axios.post('https://api.ocr.space/parse/image', formData, {
             headers: {
@@ -70,15 +116,33 @@ const processPDFWithOCR = async (pdfPath) => {
             throw new Error(`OCR processing error: ${response.data.ErrorMessage}`);
         }
 
-        // Concatenate text from all pages
-        let fullText = '';
+        // Process pages
+        let allText = '';
+        const pages = [];
+        
         if (response.data.ParsedResults && response.data.ParsedResults.length > 0) {
-            response.data.ParsedResults.forEach(result => {
-                fullText += result.ParsedText + '\n';
+            response.data.ParsedResults.forEach((result, index) => {
+                const pageText = result.ParsedText;
+                allText += pageText + '\n';
+                
+                pages.push({
+                    pageNumber: index + 1,
+                    text: pageText.trim(),
+                    exitCode: result.FileParseExitCode,
+                    confidence: result.TextOverlay?.Lines ? 
+                        Math.round(result.TextOverlay.Lines.reduce((sum, line) => 
+                            sum + line.Words.reduce((wSum, word) => wSum + word.Confidence, 0), 0) / 
+                            result.TextOverlay.Lines.reduce((sum, line) => sum + line.Words.length, 0)) : 
+                        null
+                });
             });
         }
 
-        return fullText;
+        return {
+            allText: allText.trim(),
+            pageCount: pages.length,
+            pages: pages
+        };
     } catch (error) {
         console.error('Error in OCR processing:', error);
         throw new Error(`OCR processing failed: ${error.message}`);
@@ -90,7 +154,7 @@ const processPDFWithOCR = async (pdfPath) => {
  * Tries direct extraction first, falls back to OCR if needed
  * @param {Buffer|string} pdfInput - PDF file buffer or path
  * @param {boolean} forceOCR - Force OCR even if direct extraction works
- * @returns {Promise<string>} Extracted text
+ * @returns {Promise<Object>} Object with text by pages and full text
  */
 export const extractTextFromPdfFile = async (pdfInput, forceOCR = false) => {
     let pdfPath = '';
@@ -107,6 +171,10 @@ export const extractTextFromPdfFile = async (pdfInput, forceOCR = false) => {
         } else if (typeof pdfInput === 'string') {
             // Input is already a path
             pdfPath = pdfInput;
+            
+            if (!fs.existsSync(pdfPath)) {
+                throw new Error(`PDF file not found at: ${pdfPath}`);
+            }
         } else {
             throw new Error('Invalid input: must be a buffer or file path');
         }
@@ -114,29 +182,43 @@ export const extractTextFromPdfFile = async (pdfInput, forceOCR = false) => {
         // Read the PDF file
         const pdfBuffer = fs.readFileSync(pdfPath);
 
-        let extractedText = '';
+        let extractionResult;
 
         if (!forceOCR) {
             try {
                 // Try direct text extraction first
-                extractedText = await extractTextFromPDF(pdfBuffer);
+                extractionResult = await extractTextFromPDF(pdfBuffer);
 
                 // Check if text extraction yielded sufficient content
                 // If there's very little text, it might be a scanned document
-                if (extractedText.trim().length < 100) {
+                const totalTextLength = extractionResult.allText.trim().length;
+                if (totalTextLength < 100) {
                     console.log('Direct extraction yielded limited text, trying OCR...');
-                    extractedText = await processPDFWithOCR(pdfPath);
+                    extractionResult = await processPDFWithOCR(pdfPath);
                 }
             } catch (directError) {
                 console.warn('Direct text extraction failed, falling back to OCR:', directError.message);
-                extractedText = await processPDFWithOCR(pdfPath);
+                extractionResult = await processPDFWithOCR(pdfPath);
             }
         } else {
             // Skip direct extraction if OCR is forced
-            extractedText = await processPDFWithOCR(pdfPath);
+            extractionResult = await processPDFWithOCR(pdfPath);
         }
 
-        return extractedText.trim();
+        // Get metadata about the file
+        const fileStats = fs.statSync(pdfPath);
+        
+        // Add file metadata
+        return {
+            ...extractionResult,
+            metadata: {
+                filename: path.basename(pdfPath),
+                size: fileStats.size,
+                created: fileStats.birthtime,
+                modified: fileStats.mtime,
+                ocrUsed: forceOCR || extractionResult.pages.some(page => page.exitCode !== undefined)
+            }
+        };
     } catch (error) {
         console.error('Error in PDF text extraction:', error);
         throw new Error(`Failed to extract text from PDF: ${error.message}`);

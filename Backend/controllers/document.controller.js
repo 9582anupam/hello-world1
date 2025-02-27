@@ -85,22 +85,25 @@ export const processDocument = async (req, res) => {
 
         // Extract text based on file type
         if (fileType === 'application/pdf') {
-            const extractedText = await extractTextFromPdfFile(filePath, useOcr);
+            // Get page-by-page text extraction
+            const pdfResult = await extractTextFromPdfFile(filePath, useOcr);
             result = {
-                text: extractedText,
-                length: extractedText.length,
+                ...pdfResult,
                 format: 'pdf',
-                fileName: fileName
+                fileName: fileName,
+                text: pdfResult.allText // For backward compatibility
             };
-        }
-        else if (fileType === 'application/vnd.ms-powerpoint' ||
-            fileType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+        } 
+        else if (fileType === 'application/vnd.ms-powerpoint' || 
+                 fileType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+            // PowerPoint extraction already gives slide-by-slide results
             const pptResult = await extractTextFromPptFile(filePath);
             result = {
                 ...pptResult,
                 format: fileType === 'application/vnd.ms-powerpoint' ? 'ppt' : 'pptx',
                 fileName: fileName,
-                length: pptResult.allText.length
+                length: pptResult.allText.length,
+                text: pptResult.allText // For backward compatibility
             };
         }
         else {
