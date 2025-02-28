@@ -9,6 +9,7 @@ import Unauthenticated from "./routes/Unauthenticated";
 import UserProvider from "./context/UserContext";
 import { Toaster } from 'react-hot-toast';
 import Profile from "./components/pages/profile/Profile";
+import GenerateQuiz from "./components/pages/quiz/GenerateQuiz";
 
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
                         <Routes>
                             {/* Public Routes - No Auth Needed */}
                             <Route path="/" element={<Home />} />
+                            <Route path="/generatequiz" element={<GenerateQuiz />} />
 
                             {/* Unauthenticated Routes - Only Accessible When Logged Out */}
                             <Route element={<Unauthenticated />}>

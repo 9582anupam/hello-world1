@@ -6,13 +6,13 @@ const AboutSection = () => {
         <section id="about" className="py-20 bg-slate-950">
         <div className="container mx-auto px-6">
             <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">About AssessGenAI</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">About Harmoni-AI</h2>
             <div className="w-24 h-1 bg-gradient-to-r from-cyan-500 to-indigo-600 mx-auto"></div>
             </div>
             
             <div className="max-w-4xl mx-auto text-slate-300 text-lg mb-12">
             <p>
-                AssessGenAI is a cutting-edge platform that leverages artificial intelligence to transform any content into 
+                Harmoni-AI is a cutting-edge platform that leverages artificial intelligence to transform any content into 
                 engaging, interactive assessments. Our technology analyzes your materials and generates high-quality questions, 
                 quizzes, and assessments that test comprehension and critical thinking.
             </p>
