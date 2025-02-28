@@ -27,18 +27,52 @@ const storage = multer.diskStorage({
     filename: (req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`)
 });
 
-// Video file filter
-const videoFilter = (req, file, cb) => {
-    const allowedTypes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo'];
-    allowedTypes.includes(file.mimetype) ? cb(null, true) : cb(new Error('Only video files allowed'), false);
+// Create a more flexible file filter
+const mediaFileFilter = (req, file, cb) => {
+    // List of acceptable file types
+    const videoTypes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo'];
+    const audioTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/m4a', 'audio/ogg', 'audio/x-m4a', 'audio/webm'];
+
+    // Accept any video or audio file
+    if ([...videoTypes, ...audioTypes].includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Only video or audio files are allowed'), false);
+    }
 };
 
-// Export multer middleware
+// Export a single multer middleware that accepts both video and audio
+export const mediaUpload = multer({
+    storage,
+    fileFilter: mediaFileFilter,
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB max for all media
+});
+
+// Create a fields array for multiple possible field names
+export const mediaFields = [
+    { name: 'media', maxCount: 1 },
+    { name: 'file', maxCount: 1 },
+    { name: 'audio', maxCount: 1 },
+    { name: 'video', maxCount: 1 },
+    { name: 'audioFile', maxCount: 1 },
+    { name: 'videoFile', maxCount: 1 }
+];
+
+// Remove individual video and audio upload middleware
+// (Keeping the code here for reference, but will not use them)
+/*
 export const videoUpload = multer({
     storage,
     fileFilter: videoFilter,
-    limits: { fileSize: 100 * 1024 * 1024 } // 100MB
+    limits: { fileSize: 100 * 1024 * 1024 } 
 });
+
+export const audioUpload = multer({
+    storage,
+    fileFilter: audioFilter,
+    limits: { fileSize: 50 * 1024 * 1024 } 
+});
+*/
 
 /**
  * Generate assessment from YouTube video
@@ -110,73 +144,143 @@ export const generateAssessmentFromYoutube = async (req, res) => {
 };
 
 /**
- * Generate assessment from video file
+ * Modified to handle both video and audio files
  */
-export const generateAssessmentFromVideo = async (req, res) => {
+export const generateAssessmentFromMedia = async (req, res) => {
     const timeoutId = setTimeout(() => {
         res.status(504).json({ success: false, message: 'Request timed out' });
-    }, 300000); // 5 minutes
+    }, 300000); // 5 minutes timeout
 
     try {
-        if (!req.file) {
-            clearTimeout(timeoutId);
-            return res.status(400).json({ success: false, message: 'No video file uploaded' });
+        console.log("Files received:", req.files ? Object.keys(req.files) : "none");
+        console.log("Single file:", req.file ? req.file.fieldname : "none");
+        
+        // Find the uploaded file (regardless of field name)
+        let uploadedFile = null;
+        
+        // First check for req.files (for fields)
+        if (req.files) {
+          // Look through each field name we accept
+          for (const fieldName of ['media', 'file', 'audio', 'video', 'audioFile', 'videoFile']) {
+            if (req.files[fieldName] && req.files[fieldName].length > 0) {
+              uploadedFile = req.files[fieldName][0];
+              break;
+            }
+          }
+        } 
+        // Then check for req.file (for single uploads)
+        else if (req.file) {
+          uploadedFile = req.file;
         }
-
-        const videoPath = req.file.path;
+        
+        if (!uploadedFile) {
+          clearTimeout(timeoutId);
+          return res.status(400).json({
+            success: false,
+            message: 'No media file uploaded. Please use one of these field names: media, file, audio, video, audioFile, videoFile'
+          });
+        }
+        
+        const filePath = uploadedFile.path;
+        const fileName = uploadedFile.originalname;
+        const fileType = uploadedFile.mimetype;
         const { numberOfQuestions = 5, difficulty = 'medium', type = 'MCQ' } = req.body;
-
-        // Extract audio from video
-        const audioPath = await convertVideoToAudio(videoPath);
-
-        // Transcribe audio
-        const transcriptionResult = await transcribeAudioVideo(audioPath);
-        const transcript = transcriptionResult.text;
-
-        if (!transcript || transcript.length < 50) {
-            // Clean up files
-            fs.unlinkSync(videoPath);
-            fs.unlinkSync(audioPath);
-
-            clearTimeout(timeoutId);
-            return res.status(400).json({
-                success: false,
-                message: 'Insufficient speech content in video'
-            });
-        }
-
-        // Generate assessment
-        const assessmentJson = await generateAssessmentPromptCall(transcript, type, numberOfQuestions, difficulty);
-
-        // Parse result
-        let assessment;
+        
+        console.log(`Processing media file: ${fileName} (${fileType}) from field ${uploadedFile.fieldname}`);
+        
+        // Track paths for cleanup
+        const pathsToCleanup = [];
+        let audioPath = filePath;
+        let tempAudioCreated = false;
+        
+        // Determine if this is a video or audio file
+        const isVideo = fileType.startsWith('video/');
+        
         try {
-            const match = assessmentJson.match(/\[[\s\S]*\]/);
-            assessment = match ? JSON.parse(match[0]) : JSON.parse(assessmentJson);
-        } catch (error) {
-            assessment = { rawResponse: assessmentJson };
+            // If it's a video, extract the audio first
+            if (isVideo) {
+                console.log('Converting video to audio...');
+                audioPath = await convertVideoToAudio(filePath);
+                console.log(`Audio extracted to: ${audioPath}`);
+                tempAudioCreated = true;
+            }
+            
+            // Transcribe the audio
+            console.log('Transcribing media...');
+            
+            // Important: Set doNotDelete flag to true, so our function manages file deletion
+            // Alternatively, make a copy of the file
+            const audioFile = fs.readFileSync(audioPath);
+            const tempFileName = `trans_${uuidv4()}${path.extname(audioPath)}`;
+            const tempFilePath = path.join(path.dirname(audioPath), tempFileName);
+            fs.writeFileSync(tempFilePath, audioFile);
+            pathsToCleanup.push(tempFilePath);
+            
+            const transcriptionResult = await transcribeAudioVideo(tempFilePath); // Use the copy
+            const transcript = transcriptionResult.text;
+            console.log(transcript);
+            if (!transcript) {
+                clearTimeout(timeoutId);
+                throw new Error('Insufficient speech content in media');
+            }
+            
+            // Generate assessment
+            console.log(`Generating ${numberOfQuestions} ${difficulty} ${type} questions...`);
+            const assessmentJson = await generateAssessmentPromptCall(transcript, type, numberOfQuestions, difficulty);
+            
+            // Parse result
+            let assessment;
+            try {
+                const match = assessmentJson.match(/\[[\s\S]*\]/);
+                assessment = match ? JSON.parse(match[0]) : JSON.parse(assessmentJson);
+            } catch (error) {
+                assessment = { rawResponse: assessmentJson };
+            }
+            
+            clearTimeout(timeoutId);
+            res.status(200).json({
+                success: true,
+                fileName,
+                mediaType: isVideo ? 'video' : 'audio',
+                assessment,
+                metadata: { 
+                    type, 
+                    difficulty, 
+                    questionCount: numberOfQuestions,
+                    transcriptLength: transcript.length
+                }
+            });
+        } finally {
+            // Clean up files safely
+            try {
+                // Clean up original file if it still exists
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    console.log(`Cleaned up original file: ${filePath}`);
+                }
+                
+                // Clean up extracted audio if it was created and still exists
+                if (tempAudioCreated && audioPath !== filePath && fs.existsSync(audioPath)) {
+                    fs.unlinkSync(audioPath);
+                    console.log(`Cleaned up extracted audio: ${audioPath}`);
+                }
+                
+                // Clean up any other temp files
+                pathsToCleanup.forEach(p => {
+                    if (fs.existsSync(p)) {
+                        fs.unlinkSync(p);
+                        console.log(`Cleaned up temp file: ${p}`);
+                    }
+                });
+            } catch (cleanupError) {
+                console.error('Error during file cleanup:', cleanupError);
+                // Continue even if cleanup fails
+            }
         }
-
-        // Clean up files
-        fs.unlinkSync(videoPath);
-        fs.unlinkSync(audioPath);
-
-        clearTimeout(timeoutId);
-        res.status(200).json({
-            success: true,
-            assessment,
-            metadata: { type, difficulty, questionCount: numberOfQuestions }
-        });
-
     } catch (error) {
         clearTimeout(timeoutId);
-
-        // Clean up files if they exist
-        if (req.file?.path && fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
-        }
-
-        console.error('Error generating video assessment:', error);
+        console.error('Error generating assessment from media:', error);
+        
         res.status(500).json({
             success: false,
             message: 'Error generating assessment',

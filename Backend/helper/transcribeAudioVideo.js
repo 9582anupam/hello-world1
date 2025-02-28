@@ -10,7 +10,14 @@ dotenv.config();
 
 const ASSEMBLY_API_KEY = process.env.ASSEMBLY_API_KEY;
 
-const transcribeAudioVideo = async (filePath) => {
+/**
+ * Transcribe audio or video file to text
+ * @param {string} filePath - Path to the audio/video file
+ * @param {Object} options - Options for transcription
+ * @param {boolean} options.deleteFile - Whether to delete the file after processing (default: true)
+ * @returns {Promise<Object>} Transcription result
+ */
+const transcribeAudioVideo = async (filePath, options = { deleteFile: true }) => {
     try {
         if (!ASSEMBLY_API_KEY) {
             throw new Error('ASSEMBLY_API_KEY is not set in environment variables');
@@ -91,10 +98,14 @@ const transcribeAudioVideo = async (filePath) => {
         console.error("Error transcribing media:", err);
         throw new Error(`Transcription failed: ${err.message}`);
     } finally {
-        // Optionally clean up the file after processing
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-            console.log('Temporary media file removed');
+        // Delete the file only if options.deleteFile is true
+        if (options.deleteFile && fs.existsSync(filePath)) {
+            try {
+                fs.unlinkSync(filePath);
+                console.log('Temporary media file removed');
+            } catch (err) {
+                console.error('Error deleting temporary media file:', err);
+            }
         }
     }
 };
