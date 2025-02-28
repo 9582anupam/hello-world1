@@ -20,9 +20,7 @@ const userSchema = new mongoose.Schema(
             required: true,
             minlength: 6,
         },
-        phoneNumber: {
-            type: String,
-        },
+
         role: {
             type: String,
             enum: ["USER", "ADMIN", "EDUCATOR"],
@@ -40,31 +38,23 @@ const userSchema = new mongoose.Schema(
             type: [String],
         },
 
-        state: {
-            type: String,
-        },
-
-        age: {
-            type: Number,
-        },
-
         // favorites: {
         //     type: [mongoose.Schema.Types.ObjectId],
         //     // ref: '',
         // },
 
-        gender: {
-            type: String,
-            enum: ['male', 'female', 'other'],
-        },
-
         tokens: {
             type: Number,
         },
 
-        questionsCreated: {
+        assessmentCreated: {
             type: [mongoose.Schema.Types.ObjectId],
-            ref: "Question",
+            ref: "Assessment",
+        },
+
+        assessmentAttempted: {
+            type: [mongoose.Schema.Types.ObjectId],
+            ref: "Assessment",
         }
 
     },
