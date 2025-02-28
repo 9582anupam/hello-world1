@@ -47,7 +47,7 @@ const Header = () => {
             <div className="flex items-center">
                 <Brain className="h-8 w-8 text-cyan-400" />
                 <span className="ml-2 text-xl font-bold bg-gradient-to-r from-cyan-400 to-indigo-500 bg-clip-text text-transparent">
-                AssessGenAI
+                Harmoni-AI
                 </span>
             </div>
 
@@ -56,8 +56,8 @@ const Header = () => {
                 <Link to="#about" className="text-slate-300 hover:text-cyan-400 transition-colors">
                 About
                 </Link>
-                <Link to="#how-it-works" className="text-slate-300 hover:text-cyan-400 transition-colors">
-                How It Works
+                <Link to="/generatequiz" className="text-slate-300 hover:text-cyan-400 transition-colors">
+                Generate Quiz
                 </Link>
                 <Link to="#features" className="text-slate-300 hover:text-cyan-400 transition-colors">
                 Features
