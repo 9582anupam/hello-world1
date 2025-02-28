@@ -1,7 +1,7 @@
 import { generateBotResponse } from "../services/chatbot.service.js";
 
 
-export const getBotResponse = async (req, res) => {
+const getBotResponse = async (req, res) => {
     try {
         const response = await generateBotResponse();
         res.status(200).json({ response });
@@ -13,5 +13,20 @@ export const getBotResponse = async (req, res) => {
     }
 };
 
+
+const generateAssessment = async (req, res) => {
+    try {
+        const assessment = await generateBotResponse();
+        res.status(200).json({ assessment });
+    } catch (error) {
+        console.error('Error in generating assessment:', error);
+        res.status(500).json({
+            message: 'Error generating assessment'
+        });
+    }
+};
+
+
+export { getBotResponse, generateAssessment };
 
 

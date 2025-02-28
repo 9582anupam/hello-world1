@@ -1,4 +1,4 @@
-import { transcribeAudioVideo } from "../helper/transcribeAudioVideo.js";
+import transcribeAudioVideo from "../helper/transcribeAudioVideo.js";
 
 
 

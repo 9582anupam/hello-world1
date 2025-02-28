@@ -10,7 +10,7 @@ dotenv.config();
 
 const ASSEMBLY_API_KEY = process.env.ASSEMBLY_API_KEY;
 
-export const transcribeAudioVideo = async (filePath) => {
+const transcribeAudioVideo = async (filePath) => {
     try {
         if (!ASSEMBLY_API_KEY) {
             throw new Error('ASSEMBLY_API_KEY is not set in environment variables');

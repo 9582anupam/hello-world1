@@ -7,7 +7,7 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export const fetchYouTubeAudio = async (videoUrl) => {
+const fetchYouTubeAudio = async (videoUrl) => {
     try {
         // Validate URL first
         if (!ytdl.validateURL(videoUrl)) {
@@ -53,3 +53,5 @@ export const fetchYouTubeAudio = async (videoUrl) => {
         throw err;
     }
 };
+
+export default fetchYouTubeAudio;
