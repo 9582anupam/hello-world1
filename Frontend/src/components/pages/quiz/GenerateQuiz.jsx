@@ -1,12 +1,16 @@
 import { useState, useRef } from "react"
 import { FileText, Youtube, Video, Music, FileUp, BrainCircuit, ChevronDown, Upload, AlertCircle } from "lucide-react"
 
-const InputSelection = () => {
+const GenerateQuiz = () => {
     const [selectedInput, setSelectedInput] = useState(null)
     const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+    const [isDifficultyDropdownOpen, setIsDifficultyDropdownOpen] = useState(false)
+    const [isQuestionCountDropdownOpen, setIsQuestionCountDropdownOpen] = useState(false)
     const [file, setFile] = useState(null)
     const [inputValue, setInputValue] = useState("")
     const [error, setError] = useState("")
+    const [difficulty, setDifficulty] = useState(null)
+    const [questionCount, setQuestionCount] = useState(null)
     const fileInputRef = useRef(null)
 
     const inputTypes = [
@@ -71,12 +75,33 @@ const InputSelection = () => {
         },
     ]
 
+    const difficultyLevels = [
+        { id: "easy", name: "Easy" },
+        { id: "medium", name: "Medium "},
+        { id: "hard", name: "Hard" }
+    ]
+
+    const questionCounts = [
+        { id: "5", name: "5 Questions" },
+        { id: "10", name: "10 Questions" }
+    ]
+
     const handleInputTypeSelect = (inputType) => {
         setSelectedInput(inputType)
         setIsDropdownOpen(false)
         setError("")
         setFile(null)
         setInputValue("")
+    }
+
+    const handleDifficultySelect = (difficultyLevel) => {
+        setDifficulty(difficultyLevel)
+        setIsDifficultyDropdownOpen(false)
+    }
+
+    const handleQuestionCountSelect = (count) => {
+        setQuestionCount(count)
+        setIsQuestionCountDropdownOpen(false)
     }
 
     const handleFileChange = (e) => {
@@ -107,19 +132,31 @@ const InputSelection = () => {
 
     const handleSubmit = () => {
         if (selectedInput.acceptsFile && !file) {
-        setError("Please upload a file")
-        return
+            setError("Please upload a file")
+            return
         }
 
         if (!selectedInput.acceptsFile && !inputValue) {
-        setError("Please enter a valid input")
-        return
+            setError("Please enter a valid input")
+            return
+        }
+
+        if (!difficulty) {
+            setError("Please select a difficulty level")
+            return
+        }
+
+        if (!questionCount) {
+            setError("Please select number of questions")
+            return
         }
 
         // Process the input (file or text)
         console.log("Processing input:", selectedInput.id)
         console.log("File:", file)
         console.log("Input value:", inputValue)
+        console.log("Difficulty:", difficulty.id)
+        console.log("Question count:", questionCount.id)
 
         // Here you would typically send the data to your backend
         alert("Input submitted successfully!")
@@ -131,13 +168,10 @@ const InputSelection = () => {
 
     return (
         <section className="py-16 bg-slate-900 -mt-2 min-h-screen">
-        <div className="container mx-auto px-6">
+        <div className="container mx-auto px-6 -mt-12">
             <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Generate Your Quiz</h2>
             <div className="w-24 h-1 bg-gradient-to-r from-cyan-500 to-indigo-600 mx-auto mb-6"></div>
-            <p className="text-slate-300 max-w-2xl mx-auto">
-                Select your preferred input method below and let our AI generate engaging questions for your content.
-            </p>
             </div>
 
             <div className="max-w-3xl mx-auto">
@@ -242,6 +276,83 @@ const InputSelection = () => {
                 </div>
                 )}
 
+                {/* Quiz Configuration - only show if input is selected */}
+                {selectedInput && (
+                <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Difficulty Selector */}
+                    <div>
+                        <label className="block text-slate-300 mb-2 font-medium">Difficulty Level</label>
+                        <div className="relative">
+                            <button
+                                className="w-full flex items-center justify-between bg-slate-900 border border-slate-700 hover:border-cyan-500/50 rounded-lg p-4 text-left transition-all"
+                                onClick={() => setIsDifficultyDropdownOpen(!isDifficultyDropdownOpen)}
+                            >
+                                {difficulty ? (
+                                    <div>
+                                        <div className="font-medium text-slate-200">{difficulty.name}</div>
+                                    </div>
+                                ) : (
+                                    <span className="text-slate-400">Select difficulty...</span>
+                                )}
+                                <ChevronDown
+                                    className={`h-5 w-5 text-slate-400 transition-transform ${isDifficultyDropdownOpen ? "rotate-180" : ""}`}
+                                />
+                            </button>
+
+                            {isDifficultyDropdownOpen && (
+                                <div className="absolute z-10 w-full mt-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl">
+                                    {difficultyLevels.map((level) => (
+                                        <div
+                                            key={level.id}
+                                            className="p-3 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0"
+                                            onClick={() => handleDifficultySelect(level)}
+                                        >
+                                            <div className="font-medium text-slate-200">{level.name}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Question Count Selector */}
+                    <div>
+                        <label className="block text-slate-300 mb-2 font-medium">Number of Questions</label>
+                        <div className="relative">
+                            <button
+                                className="w-full flex items-center justify-between bg-slate-900 border border-slate-700 hover:border-cyan-500/50 rounded-lg p-4 text-left transition-all"
+                                onClick={() => setIsQuestionCountDropdownOpen(!isQuestionCountDropdownOpen)}
+                            >
+                                {questionCount ? (
+                                    <div>
+                                        <div className="font-medium text-slate-200">{questionCount.name}</div>
+                                    </div>
+                                ) : (
+                                    <span className="text-slate-400">Select question count...</span>
+                                )}
+                                <ChevronDown
+                                    className={`h-5 w-5 text-slate-400 transition-transform ${isQuestionCountDropdownOpen ? "rotate-180" : ""}`}
+                                />
+                            </button>
+
+                            {isQuestionCountDropdownOpen && (
+                                <div className="absolute z-10 w-full mt-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl">
+                                    {questionCounts.map((count) => (
+                                        <div
+                                            key={count.id}
+                                            className="p-3 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-0"
+                                            onClick={() => handleQuestionCountSelect(count)}
+                                        >
+                                            <div className="font-medium text-slate-200">{count.name}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+                )}
+
                 {/* Submit Button */}
                 {selectedInput && (
                 <button
@@ -258,5 +369,4 @@ const InputSelection = () => {
     )
 }
 
-export default InputSelection
-
+export default GenerateQuiz
