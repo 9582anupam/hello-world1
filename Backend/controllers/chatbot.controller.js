@@ -1,5 +1,4 @@
 import { generateBotResponse } from "../services/chatbot.service.js";
-import { fetchYouTubeAudio } from "../helper/fetchYouTubeAudio.js";
 
 
 export const getBotResponse = async (req, res) => {
