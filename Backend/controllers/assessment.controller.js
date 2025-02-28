@@ -1,159 +1,106 @@
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import ytdl from '@distube/ytdl-core';
 import transcribeAudioVideo from '../helper/transcribeAudioVideo.js';
 import fetchYouTubeAudio from '../helper/fetchYouTubeAudio.js';
 import generateAssessmentPromptCall from '../helper/generateAssessmentPromptCall.js';
-import ytdl from '@distube/ytdl-core';
+import convertVideoToAudio from '../helper/convertVideoToAudio.js';
+
+// Setup paths
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const UPLOAD_DIR = path.resolve(__dirname, '../uploads');
+
+// Ensure upload directory exists
+if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+// Configure multer storage
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+    filename: (req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`)
+});
+
+// Video file filter
+const videoFilter = (req, file, cb) => {
+    const allowedTypes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo'];
+    allowedTypes.includes(file.mimetype) ? cb(null, true) : cb(new Error('Only video files allowed'), false);
+};
+
+// Export multer middleware
+export const videoUpload = multer({
+    storage,
+    fileFilter: videoFilter,
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB
+});
 
 /**
- * Generate assessment questions from YouTube video content
- * @route POST /api/assessment/youtube
- * @param {Object} req.body.videoUrl - YouTube video URL
- * @param {Object} req.body.numberOfQuestions - Number of questions to generate (default: 5)
- * @param {Object} req.body.difficulty - Difficulty level (easy, medium, hard)
- * @param {Object} req.body.type - Question type (MCQ, TF, SHORT_ANSWER, etc.)
- * @returns {Object} Generated assessment questions
+ * Generate assessment from YouTube video
  */
-const generateAssessmentFromYoutube = async (req, res) => {
-    // Start timeout to prevent long-running requests
-    const timeoutId = setTimeout(() => {
-        res.status(504).json({
-            success: false,
-            message: 'Request timed out',
-            error: 'Processing took too long. Try with a shorter video.'
-        });
-    }, 180000); // 3 minute timeout
-
+export const generateAssessmentFromYoutube = async (req, res) => {
     try {
-        // Validate request parameters
-        const { videoUrl } = req.body;
+        const { videoUrl, numberOfQuestions = 5, difficulty = 'medium', type = 'MCQ' } = req.body;
 
         if (!videoUrl) {
-            clearTimeout(timeoutId);
             return res.status(400).json({
                 success: false,
-                message: 'Missing required parameters',
-                error: 'Video URL is required'
+                message: 'YouTube URL is required'
             });
         }
 
-        // Extract optional parameters with defaults
-        const numberOfQuestions = parseInt(req.body.numberOfQuestions) || 5;
-        const difficulty = req.body.difficulty || 'medium';
-        const type = req.body.type || 'MCQ';
-
-        // Validate YouTube URL format
-        if (!videoUrl.includes('youtube.com/') && !videoUrl.includes('youtu.be/')) {
-            clearTimeout(timeoutId);
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid YouTube URL',
-                error: 'Please provide a valid YouTube URL'
-            });
-        }
-
-        console.log(`Generating ${numberOfQuestions} ${difficulty} ${type} questions from: ${videoUrl}`);
-
-        // Extract video ID from URL
-        let videoId = ytdl.getURLVideoID(videoUrl);
-
-        if (!videoId) {
-            clearTimeout(timeoutId);
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid YouTube URL format',
-                error: 'Could not extract video ID from URL'
-            });
-        }
-
-        // First try to get transcript from Python service
-        console.log(`Fetching transcript from Python service for video ID: ${videoId}`);
+        // Extract video ID
+        const videoId = ytdl.getURLVideoID(videoUrl);
         let transcript;
+
+        // Try Python service first
         try {
-            const pythonServiceResponse = await axios.get(
-                `https://product-answer.vercel.app/api/transcript/${videoId}`,
-                { timeout: 20000 }
-            );
-
-            if (pythonServiceResponse.data?.transcript) {
-                console.log('Obtained transcript from Python service');
-                transcript = pythonServiceResponse.data.transcript;
-            }
-        } catch (pythonServiceError) {
-            console.log('Python service failed, will try manual extraction:', pythonServiceError.message);
+            const pythonResponse = await axios.get(`https://product-answer.vercel.app/api/transcript/${videoId}`, { timeout: 15000 });
+            transcript = pythonResponse.data.transcript;
+        } catch (error) {
+            console.log('Python service failed, falling back to manual extraction');
         }
 
-        // If Python service failed, extract audio and transcribe it manually
+        // If Python service failed, extract manually
         if (!transcript) {
-            console.log('Starting manual audio extraction and transcription...');
-            try {
-                const audioPath = await fetchYouTubeAudio(videoUrl);
-                console.log(`Audio downloaded to: ${audioPath}`);
-
-                const transcriptionResult = await transcribeAudioVideo(audioPath);
-                transcript = transcriptionResult.text || '';
-
-                console.log(`Manual transcription complete: ${transcript.substring(0, 50)}...`);
-            } catch (manualExtractionError) {
-                clearTimeout(timeoutId);
-                return res.status(500).json({
-                    success: false,
-                    message: 'Failed to extract transcript',
-                    error: manualExtractionError.message
-                });
-            }
+            const audioPath = await fetchYouTubeAudio(videoUrl);
+            const transcriptionResult = await transcribeAudioVideo(audioPath);
+            transcript = transcriptionResult.text;
         }
 
         if (!transcript) {
-            clearTimeout(timeoutId);
             return res.status(400).json({
                 success: false,
-                message: 'No audio available',
-                error: 'No audio available'
+                message: 'Failed to extract transcript'
             });
         }
 
-        // Generate assessment from transcript
-        console.log(`Generating assessment with ${numberOfQuestions} questions...`);
+        // Generate assessment
         const assessmentJson = await generateAssessmentPromptCall(transcript, type, numberOfQuestions, difficulty);
+        let assessment;
 
-        // Try to parse the JSON from the AI response
-        let parsedAssessment;
         try {
-            // Look for JSON array in the response
-            const jsonMatch = assessmentJson.match(/\[[\s\S]*\]/);
-            if (jsonMatch) {
-                parsedAssessment = JSON.parse(jsonMatch[0]);
-            } else {
-                // Fallback to parsing the entire response
-                parsedAssessment = JSON.parse(assessmentJson);
-            }
-        } catch (parseError) {
-            console.error('Failed to parse assessment JSON:', parseError);
-            parsedAssessment = { rawResponse: assessmentJson };
+            // Try to extract JSON from the response
+            const match = assessmentJson.match(/\[[\s\S]*\]/);
+            assessment = match ? JSON.parse(match[0]) : JSON.parse(assessmentJson);
+        } catch (error) {
+            assessment = { rawResponse: assessmentJson };
         }
-
-        // Clear timeout and return successful response
-        clearTimeout(timeoutId);
 
         res.status(200).json({
             success: true,
-            message: 'Assessment generated successfully',
             videoId,
-            videoUrl,
-            metadata: {
-                type,
-                difficulty,
-                questionCount: numberOfQuestions,
-                transcriptLength: transcript.length
-            },
-            assessment: parsedAssessment,
-            status: 200
+            assessment,
+            metadata: { type, difficulty, questionCount: numberOfQuestions }
         });
 
     } catch (error) {
-        clearTimeout(timeoutId);
-        console.error('Error generating assessment from YouTube:', error);
-
+        console.error('Error generating YouTube assessment:', error);
         res.status(500).json({
             success: false,
             message: 'Error generating assessment',
@@ -162,9 +109,78 @@ const generateAssessmentFromYoutube = async (req, res) => {
     }
 };
 
+/**
+ * Generate assessment from video file
+ */
+export const generateAssessmentFromVideo = async (req, res) => {
+    const timeoutId = setTimeout(() => {
+        res.status(504).json({ success: false, message: 'Request timed out' });
+    }, 300000); // 5 minutes
 
+    try {
+        if (!req.file) {
+            clearTimeout(timeoutId);
+            return res.status(400).json({ success: false, message: 'No video file uploaded' });
+        }
 
+        const videoPath = req.file.path;
+        const { numberOfQuestions = 5, difficulty = 'medium', type = 'MCQ' } = req.body;
 
+        // Extract audio from video
+        const audioPath = await convertVideoToAudio(videoPath);
 
+        // Transcribe audio
+        const transcriptionResult = await transcribeAudioVideo(audioPath);
+        const transcript = transcriptionResult.text;
 
-export { generateAssessmentFromYoutube };
+        if (!transcript || transcript.length < 50) {
+            // Clean up files
+            fs.unlinkSync(videoPath);
+            fs.unlinkSync(audioPath);
+
+            clearTimeout(timeoutId);
+            return res.status(400).json({
+                success: false,
+                message: 'Insufficient speech content in video'
+            });
+        }
+
+        // Generate assessment
+        const assessmentJson = await generateAssessmentPromptCall(transcript, type, numberOfQuestions, difficulty);
+
+        // Parse result
+        let assessment;
+        try {
+            const match = assessmentJson.match(/\[[\s\S]*\]/);
+            assessment = match ? JSON.parse(match[0]) : JSON.parse(assessmentJson);
+        } catch (error) {
+            assessment = { rawResponse: assessmentJson };
+        }
+
+        // Clean up files
+        fs.unlinkSync(videoPath);
+        fs.unlinkSync(audioPath);
+
+        clearTimeout(timeoutId);
+        res.status(200).json({
+            success: true,
+            assessment,
+            metadata: { type, difficulty, questionCount: numberOfQuestions }
+        });
+
+    } catch (error) {
+        clearTimeout(timeoutId);
+
+        // Clean up files if they exist
+        if (req.file?.path && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+
+        console.error('Error generating video assessment:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error generating assessment',
+            error: error.message
+        });
+    }
+};
