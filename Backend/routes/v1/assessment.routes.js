@@ -7,7 +7,7 @@ import {
     documentFields,
     mediaUpload,
     documentUpload
-} from "../../controllers/Assessment.controller.js";
+} from "../../controllers/assessment.controller.js";
 
 const router = express.Router();
 
