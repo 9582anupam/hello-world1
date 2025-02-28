@@ -51,7 +51,7 @@ const documentFileFilter = (req, file, cb) => {
         'application/vnd.ms-powerpoint',       // PPT
         'application/vnd.openxmlformats-officedocument.presentationml.presentation' // PPTX
     ];
-    
+
     if (documentTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
@@ -60,21 +60,21 @@ const documentFileFilter = (req, file, cb) => {
 };
 
 // Export a single multer middleware that accepts both video and audio
-export const mediaUpload = multer({
+const mediaUpload = multer({
     storage,
     fileFilter: mediaFileFilter,
     limits: { fileSize: 100 * 1024 * 1024 } // 100MB max for all media
 });
 
 // Create document upload middleware
-export const documentUpload = multer({
+const documentUpload = multer({
     storage,
     fileFilter: documentFileFilter,
     limits: { fileSize: 25 * 1024 * 1024 } // 25MB max for documents
 });
 
 // Create a fields array for multiple possible field names
-export const mediaFields = [
+const mediaFields = [
     { name: 'media', maxCount: 1 },
     { name: 'file', maxCount: 1 },
     { name: 'audio', maxCount: 1 },
@@ -84,7 +84,7 @@ export const mediaFields = [
 ];
 
 // Create fields array for document upload
-export const documentFields = [
+const documentFields = [
     { name: 'document', maxCount: 1 },
     { name: 'file', maxCount: 1 },
     { name: 'pdf', maxCount: 1 },
@@ -111,7 +111,7 @@ export const audioUpload = multer({
 /**
  * Generate assessment from YouTube video
  */
-export const generateAssessmentFromYoutube = async (req, res) => {
+const generateAssessmentFromYoutube = async (req, res) => {
     try {
         const { videoUrl, numberOfQuestions = 5, difficulty = 'medium', type = 'MCQ' } = req.body;
 
@@ -180,7 +180,7 @@ export const generateAssessmentFromYoutube = async (req, res) => {
 /**
  * Modified to handle both video and audio files
  */
-export const generateAssessmentFromMedia = async (req, res) => {
+const generateAssessmentFromMedia = async (req, res) => {
     const timeoutId = setTimeout(() => {
         res.status(504).json({ success: false, message: 'Request timed out' });
     }, 300000); // 5 minutes timeout
@@ -188,48 +188,48 @@ export const generateAssessmentFromMedia = async (req, res) => {
     try {
         console.log("Files received:", req.files ? Object.keys(req.files) : "none");
         console.log("Single file:", req.file ? req.file.fieldname : "none");
-        
+
         // Find the uploaded file (regardless of field name)
         let uploadedFile = null;
-        
+
         // First check for req.files (for fields)
         if (req.files) {
-          // Look through each field name we accept
-          for (const fieldName of ['media', 'file', 'audio', 'video', 'audioFile', 'videoFile']) {
-            if (req.files[fieldName] && req.files[fieldName].length > 0) {
-              uploadedFile = req.files[fieldName][0];
-              break;
+            // Look through each field name we accept
+            for (const fieldName of ['media', 'file', 'audio', 'video', 'audioFile', 'videoFile']) {
+                if (req.files[fieldName] && req.files[fieldName].length > 0) {
+                    uploadedFile = req.files[fieldName][0];
+                    break;
+                }
             }
-          }
-        } 
+        }
         // Then check for req.file (for single uploads)
         else if (req.file) {
-          uploadedFile = req.file;
+            uploadedFile = req.file;
         }
-        
+
         if (!uploadedFile) {
-          clearTimeout(timeoutId);
-          return res.status(400).json({
-            success: false,
-            message: 'No media file uploaded. Please use one of these field names: media, file, audio, video, audioFile, videoFile'
-          });
+            clearTimeout(timeoutId);
+            return res.status(400).json({
+                success: false,
+                message: 'No media file uploaded. Please use one of these field names: media, file, audio, video, audioFile, videoFile'
+            });
         }
-        
+
         const filePath = uploadedFile.path;
         const fileName = uploadedFile.originalname;
         const fileType = uploadedFile.mimetype;
         const { numberOfQuestions = 5, difficulty = 'medium', type = 'MCQ' } = req.body;
-        
+
         console.log(`Processing media file: ${fileName} (${fileType}) from field ${uploadedFile.fieldname}`);
-        
+
         // Track paths for cleanup
         const pathsToCleanup = [];
         let audioPath = filePath;
         let tempAudioCreated = false;
-        
+
         // Determine if this is a video or audio file
         const isVideo = fileType.startsWith('video/');
-        
+
         try {
             // If it's a video, extract the audio or try to use as-is if extraction fails
             if (isVideo) {
@@ -244,14 +244,14 @@ export const generateAssessmentFromMedia = async (req, res) => {
                     // Some audio APIs might be able to extract audio from video files directly
                 }
             }
-            
+
             // Transcribe the audio/video
             console.log('Transcribing media...');
-            
+
             // Create a copy of the file to avoid deletion conflicts
             const tempFileName = `trans_${uuidv4()}${path.extname(audioPath)}`;
             const tempFilePath = path.join(path.dirname(audioPath), tempFileName);
-            
+
             try {
                 const audioFile = fs.readFileSync(audioPath);
                 fs.writeFileSync(tempFilePath, audioFile);
@@ -261,24 +261,24 @@ export const generateAssessmentFromMedia = async (req, res) => {
                 // Fall back to using the original file with deleteFile: false option
                 tempAudioCreated = false;
             }
-            
+
             // Use tempFilePath if successful, otherwise use original with delete:false
             const transcriptionResult = await transcribeAudioVideo(
                 pathsToCleanup.includes(tempFilePath) ? tempFilePath : audioPath,
                 { deleteFile: !pathsToCleanup.includes(tempFilePath) }
             );
-            
+
             const transcript = transcriptionResult.text;
             console.log(transcript);
             if (!transcript) {
                 clearTimeout(timeoutId);
                 throw new Error('Insufficient speech content in media');
             }
-            
+
             // Generate assessment
             console.log(`Generating ${numberOfQuestions} ${difficulty} ${type} questions...`);
             const assessmentJson = await generateAssessmentPromptCall(transcript, type, numberOfQuestions, difficulty);
-            
+
             // Parse result
             let assessment;
             try {
@@ -287,16 +287,16 @@ export const generateAssessmentFromMedia = async (req, res) => {
             } catch (error) {
                 assessment = { rawResponse: assessmentJson };
             }
-            
+
             clearTimeout(timeoutId);
             res.status(200).json({
                 success: true,
                 fileName,
                 mediaType: isVideo ? 'video' : 'audio',
                 assessment,
-                metadata: { 
-                    type, 
-                    difficulty, 
+                metadata: {
+                    type,
+                    difficulty,
                     questionCount: numberOfQuestions,
                     transcriptLength: transcript.length
                 }
@@ -309,13 +309,13 @@ export const generateAssessmentFromMedia = async (req, res) => {
                     fs.unlinkSync(filePath);
                     console.log(`Cleaned up original file: ${filePath}`);
                 }
-                
+
                 // Clean up extracted audio if it was created and still exists
                 if (tempAudioCreated && audioPath !== filePath && fs.existsSync(audioPath)) {
                     fs.unlinkSync(audioPath);
                     console.log(`Cleaned up extracted audio: ${audioPath}`);
                 }
-                
+
                 // Clean up any other temp files
                 pathsToCleanup.forEach(p => {
                     if (fs.existsSync(p)) {
@@ -331,7 +331,7 @@ export const generateAssessmentFromMedia = async (req, res) => {
     } catch (error) {
         clearTimeout(timeoutId);
         console.error('Error generating assessment from media:', error);
-        
+
         res.status(500).json({
             success: false,
             message: 'Error generating assessment',
@@ -343,18 +343,18 @@ export const generateAssessmentFromMedia = async (req, res) => {
 /**
  * Generate assessment from uploaded document (PDF/PowerPoint)
  */
-export const generateAssessmentFromDocument = async (req, res) => {
+const generateAssessmentFromDocument = async (req, res) => {
     const timeoutId = setTimeout(() => {
         res.status(504).json({ success: false, message: 'Request timed out' });
     }, 180000); // 3 minutes timeout
-    
+
     try {
         console.log("Document files received:", req.files ? Object.keys(req.files) : "none");
         console.log("Single document:", req.file ? req.file.fieldname : "none");
-        
+
         // Find the uploaded file (similar to media handler)
         let uploadedFile = null;
-        
+
         if (req.files) {
             for (const fieldName of ['document', 'file', 'pdf', 'ppt', 'pptx']) {
                 if (req.files[fieldName] && req.files[fieldName].length > 0) {
@@ -365,7 +365,7 @@ export const generateAssessmentFromDocument = async (req, res) => {
         } else if (req.file) {
             uploadedFile = req.file;
         }
-        
+
         if (!uploadedFile) {
             clearTimeout(timeoutId);
             return res.status(400).json({
@@ -373,19 +373,19 @@ export const generateAssessmentFromDocument = async (req, res) => {
                 message: 'No document file uploaded. Please use one of these field names: document, file, pdf, ppt, pptx'
             });
         }
-        
+
         const filePath = uploadedFile.path;
         const fileName = uploadedFile.originalname;
         const fileType = uploadedFile.mimetype;
         const { numberOfQuestions = 5, difficulty = 'medium', type = 'MCQ' } = req.body;
-        
+
         console.log(`Processing document: ${fileName} (${fileType})`);
-        
+
         try {
             // Extract text based on file type
             let documentText;
             let documentMetadata = {};
-            
+
             if (fileType === 'application/pdf') {
                 console.log('Processing PDF document...');
                 const pdfResult = await extractTextFromPdfFile(filePath, false);
@@ -394,9 +394,9 @@ export const generateAssessmentFromDocument = async (req, res) => {
                     pageCount: pdfResult.pageCount,
                     documentType: 'PDF'
                 };
-            } 
-            else if (fileType === 'application/vnd.ms-powerpoint' || 
-                    fileType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+            }
+            else if (fileType === 'application/vnd.ms-powerpoint' ||
+                fileType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
                 console.log('Processing PowerPoint document...');
                 const pptResult = await extractTextFromPptFile(filePath);
                 documentText = pptResult.allText;
@@ -418,13 +418,13 @@ export const generateAssessmentFromDocument = async (req, res) => {
                     error: 'The document has too little text content (minimum 100 characters required)'
                 });
             }
-            
+
             console.log(`Document text extracted, length: ${documentText.length} characters`);
             console.log(`Generating ${numberOfQuestions} ${difficulty} ${type} questions...`);
-            
+
             // Generate assessment
             const assessmentJson = await generateAssessmentPromptCall(documentText, type, numberOfQuestions, difficulty);
-            
+
             // Parse result
             let assessment;
             try {
@@ -434,7 +434,7 @@ export const generateAssessmentFromDocument = async (req, res) => {
                 console.error('Failed to parse assessment JSON:', error);
                 assessment = { rawResponse: assessmentJson };
             }
-            
+
             // Clean up the file
             try {
                 fs.unlinkSync(filePath);
@@ -442,22 +442,22 @@ export const generateAssessmentFromDocument = async (req, res) => {
             } catch (cleanupError) {
                 console.error('Error cleaning up document file:', cleanupError);
             }
-            
+
             clearTimeout(timeoutId);
             res.status(200).json({
                 success: true,
                 fileName,
                 documentType: documentMetadata.documentType,
                 assessment,
-                metadata: { 
+                metadata: {
                     ...documentMetadata,
-                    type, 
-                    difficulty, 
+                    type,
+                    difficulty,
                     questionCount: numberOfQuestions,
                     textLength: documentText.length
                 }
             });
-            
+
         } catch (processingError) {
             // Clean up on processing error
             try {
@@ -467,18 +467,30 @@ export const generateAssessmentFromDocument = async (req, res) => {
             } catch (cleanupError) {
                 console.error('Error cleaning up file after processing error:', cleanupError);
             }
-            
+
             throw processingError; // Re-throw to be caught by outer catch
         }
-        
+
     } catch (error) {
         clearTimeout(timeoutId);
         console.error('Error generating assessment from document:', error);
-        
+
         res.status(500).json({
             success: false,
             message: 'Error generating assessment from document',
             error: error.message
         });
     }
+};
+
+
+// Export the functions
+export {
+    generateAssessmentFromYoutube,
+    generateAssessmentFromMedia,
+    generateAssessmentFromDocument,
+    mediaFields,
+    documentFields,
+    mediaUpload,
+    documentUpload
 };

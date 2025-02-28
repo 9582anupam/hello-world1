@@ -12,7 +12,7 @@ import {
 const router = express.Router();
 
 /**
- * @route POST /api/v1/assessment/youtube
+ * @route POST /api/v1/assessmentGenerate/youtube
  * @desc Generate assessment from YouTube video URL
  * @access Public
  * 
@@ -26,7 +26,7 @@ const router = express.Router();
 router.post("/youtube", generateAssessmentFromYoutube);
 
 /**
- * @route POST /api/v1/assessment/media
+ * @route POST /api/v1/assessmentGenerate/media
  * @desc Generate assessment from uploaded audio or video file
  * @access Public
  * 
@@ -40,7 +40,7 @@ router.post("/youtube", generateAssessmentFromYoutube);
 router.post("/media", mediaUpload.fields(mediaFields), generateAssessmentFromMedia);
 
 /**
- * @route POST /api/v1/assessment/document
+ * @route POST /api/v1/assessmentGenerate/document
  * @desc Generate assessment from PDF or PowerPoint document
  * @access Public
  * 
@@ -55,7 +55,7 @@ router.post("/document", documentUpload.fields(documentFields), generateAssessme
 
 
 /**
- * @route GET /api/v1/assessment/upload-help
+ * @route GET /api/v1/assessmentGenerate/upload-help
  * @desc Get help information for media upload endpoints
  */
 router.get("/upload-help", (req, res) => {
