@@ -197,26 +197,43 @@ export const generateAssessmentFromMedia = async (req, res) => {
         const isVideo = fileType.startsWith('video/');
         
         try {
-            // If it's a video, extract the audio first
+            // If it's a video, extract the audio or try to use as-is if extraction fails
             if (isVideo) {
-                console.log('Converting video to audio...');
-                audioPath = await convertVideoToAudio(filePath);
-                console.log(`Audio extracted to: ${audioPath}`);
-                tempAudioCreated = true;
+                try {
+                    console.log('Converting video to audio...');
+                    audioPath = await convertVideoToAudio(filePath);
+                    console.log(`Audio extracted to: ${audioPath}`);
+                    tempAudioCreated = true;
+                } catch (conversionError) {
+                    console.error('Video conversion failed, trying to use video file directly:', conversionError.message);
+                    // Keep using the original file path
+                    // Some audio APIs might be able to extract audio from video files directly
+                }
             }
             
-            // Transcribe the audio
+            // Transcribe the audio/video
             console.log('Transcribing media...');
             
-            // Important: Set doNotDelete flag to true, so our function manages file deletion
-            // Alternatively, make a copy of the file
-            const audioFile = fs.readFileSync(audioPath);
+            // Create a copy of the file to avoid deletion conflicts
             const tempFileName = `trans_${uuidv4()}${path.extname(audioPath)}`;
             const tempFilePath = path.join(path.dirname(audioPath), tempFileName);
-            fs.writeFileSync(tempFilePath, audioFile);
-            pathsToCleanup.push(tempFilePath);
             
-            const transcriptionResult = await transcribeAudioVideo(tempFilePath); // Use the copy
+            try {
+                const audioFile = fs.readFileSync(audioPath);
+                fs.writeFileSync(tempFilePath, audioFile);
+                pathsToCleanup.push(tempFilePath);
+            } catch (copyError) {
+                console.error('Error creating file copy:', copyError);
+                // Fall back to using the original file with deleteFile: false option
+                tempAudioCreated = false;
+            }
+            
+            // Use tempFilePath if successful, otherwise use original with delete:false
+            const transcriptionResult = await transcribeAudioVideo(
+                pathsToCleanup.includes(tempFilePath) ? tempFilePath : audioPath,
+                { deleteFile: !pathsToCleanup.includes(tempFilePath) }
+            );
+            
             const transcript = transcriptionResult.text;
             console.log(transcript);
             if (!transcript) {
