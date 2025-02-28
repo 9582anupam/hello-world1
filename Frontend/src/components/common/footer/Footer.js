@@ -9,7 +9,7 @@ const Footer = () => {
             <div>
                 <div className="flex items-center mb-4">
                 <Brain className="h-8 w-8 text-cyan-500" />
-                <span className="ml-2 text-xl font-bold bg-gradient-to-r from-cyan-400 to-indigo-500 bg-clip-text text-transparent">AssessGenAI</span>
+                <span className="ml-2 text-xl font-bold bg-gradient-to-r from-cyan-400 to-indigo-500 bg-clip-text text-transparent">Harmoni-AI</span>
                 </div>
                 <p className="text-slate-400 mb-4">
                 Transform any content into engaging assessments with the power of AI.
@@ -62,7 +62,7 @@ const Footer = () => {
             </div>
             
             <div className="pt-8 border-t border-slate-800 text-center text-slate-500 text-sm">
-            <p>&copy; {new Date().getFullYear()} AssessGenAI. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Harmoni-AI. All rights reserved.</p>
             </div>
         </div>
         </footer>
