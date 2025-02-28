@@ -10,6 +10,8 @@ import transcribeAudioVideo from '../helper/transcribeAudioVideo.js';
 import fetchYouTubeAudio from '../helper/fetchYouTubeAudio.js';
 import generateAssessmentPromptCall from '../helper/generateAssessmentPromptCall.js';
 import convertVideoToAudio from '../helper/convertVideoToAudio.js';
+import { extractTextFromPdfFile } from '../helper/pdfToText.js';
+import { extractTextFromPptFile } from '../helper/pptToText.js';
 
 // Setup paths
 const __filename = fileURLToPath(import.meta.url);
@@ -41,11 +43,34 @@ const mediaFileFilter = (req, file, cb) => {
     }
 };
 
+// Add document file filter for PDFs and PPTs
+const documentFileFilter = (req, file, cb) => {
+    // List of acceptable document types
+    const documentTypes = [
+        'application/pdf',                     // PDF
+        'application/vnd.ms-powerpoint',       // PPT
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation' // PPTX
+    ];
+    
+    if (documentTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Only PDF and PowerPoint files are allowed'), false);
+    }
+};
+
 // Export a single multer middleware that accepts both video and audio
 export const mediaUpload = multer({
     storage,
     fileFilter: mediaFileFilter,
     limits: { fileSize: 100 * 1024 * 1024 } // 100MB max for all media
+});
+
+// Create document upload middleware
+export const documentUpload = multer({
+    storage,
+    fileFilter: documentFileFilter,
+    limits: { fileSize: 25 * 1024 * 1024 } // 25MB max for documents
 });
 
 // Create a fields array for multiple possible field names
@@ -56,6 +81,15 @@ export const mediaFields = [
     { name: 'video', maxCount: 1 },
     { name: 'audioFile', maxCount: 1 },
     { name: 'videoFile', maxCount: 1 }
+];
+
+// Create fields array for document upload
+export const documentFields = [
+    { name: 'document', maxCount: 1 },
+    { name: 'file', maxCount: 1 },
+    { name: 'pdf', maxCount: 1 },
+    { name: 'ppt', maxCount: 1 },
+    { name: 'pptx', maxCount: 1 }
 ];
 
 // Remove individual video and audio upload middleware
@@ -301,6 +335,149 @@ export const generateAssessmentFromMedia = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error generating assessment',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Generate assessment from uploaded document (PDF/PowerPoint)
+ */
+export const generateAssessmentFromDocument = async (req, res) => {
+    const timeoutId = setTimeout(() => {
+        res.status(504).json({ success: false, message: 'Request timed out' });
+    }, 180000); // 3 minutes timeout
+    
+    try {
+        console.log("Document files received:", req.files ? Object.keys(req.files) : "none");
+        console.log("Single document:", req.file ? req.file.fieldname : "none");
+        
+        // Find the uploaded file (similar to media handler)
+        let uploadedFile = null;
+        
+        if (req.files) {
+            for (const fieldName of ['document', 'file', 'pdf', 'ppt', 'pptx']) {
+                if (req.files[fieldName] && req.files[fieldName].length > 0) {
+                    uploadedFile = req.files[fieldName][0];
+                    break;
+                }
+            }
+        } else if (req.file) {
+            uploadedFile = req.file;
+        }
+        
+        if (!uploadedFile) {
+            clearTimeout(timeoutId);
+            return res.status(400).json({
+                success: false,
+                message: 'No document file uploaded. Please use one of these field names: document, file, pdf, ppt, pptx'
+            });
+        }
+        
+        const filePath = uploadedFile.path;
+        const fileName = uploadedFile.originalname;
+        const fileType = uploadedFile.mimetype;
+        const { numberOfQuestions = 5, difficulty = 'medium', type = 'MCQ' } = req.body;
+        
+        console.log(`Processing document: ${fileName} (${fileType})`);
+        
+        try {
+            // Extract text based on file type
+            let documentText;
+            let documentMetadata = {};
+            
+            if (fileType === 'application/pdf') {
+                console.log('Processing PDF document...');
+                const pdfResult = await extractTextFromPdfFile(filePath, false);
+                documentText = pdfResult.allText;
+                documentMetadata = {
+                    pageCount: pdfResult.pageCount,
+                    documentType: 'PDF'
+                };
+            } 
+            else if (fileType === 'application/vnd.ms-powerpoint' || 
+                    fileType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+                console.log('Processing PowerPoint document...');
+                const pptResult = await extractTextFromPptFile(filePath);
+                documentText = pptResult.allText;
+                documentMetadata = {
+                    slideCount: pptResult.slideCount,
+                    title: pptResult.title,
+                    documentType: fileType === 'application/vnd.ms-powerpoint' ? 'PPT' : 'PPTX'
+                };
+            } else {
+                throw new Error(`Unsupported document type: ${fileType}`);
+            }
+
+            // Validate that we have enough text to work with
+            if (!documentText || documentText.length < 100) {
+                clearTimeout(timeoutId);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Document contains insufficient text for assessment generation',
+                    error: 'The document has too little text content (minimum 100 characters required)'
+                });
+            }
+            
+            console.log(`Document text extracted, length: ${documentText.length} characters`);
+            console.log(`Generating ${numberOfQuestions} ${difficulty} ${type} questions...`);
+            
+            // Generate assessment
+            const assessmentJson = await generateAssessmentPromptCall(documentText, type, numberOfQuestions, difficulty);
+            
+            // Parse result
+            let assessment;
+            try {
+                const match = assessmentJson.match(/\[[\s\S]*\]/);
+                assessment = match ? JSON.parse(match[0]) : JSON.parse(assessmentJson);
+            } catch (error) {
+                console.error('Failed to parse assessment JSON:', error);
+                assessment = { rawResponse: assessmentJson };
+            }
+            
+            // Clean up the file
+            try {
+                fs.unlinkSync(filePath);
+                console.log(`Cleaned up document file: ${filePath}`);
+            } catch (cleanupError) {
+                console.error('Error cleaning up document file:', cleanupError);
+            }
+            
+            clearTimeout(timeoutId);
+            res.status(200).json({
+                success: true,
+                fileName,
+                documentType: documentMetadata.documentType,
+                assessment,
+                metadata: { 
+                    ...documentMetadata,
+                    type, 
+                    difficulty, 
+                    questionCount: numberOfQuestions,
+                    textLength: documentText.length
+                }
+            });
+            
+        } catch (processingError) {
+            // Clean up on processing error
+            try {
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+            } catch (cleanupError) {
+                console.error('Error cleaning up file after processing error:', cleanupError);
+            }
+            
+            throw processingError; // Re-throw to be caught by outer catch
+        }
+        
+    } catch (error) {
+        clearTimeout(timeoutId);
+        console.error('Error generating assessment from document:', error);
+        
+        res.status(500).json({
+            success: false,
+            message: 'Error generating assessment from document',
             error: error.message
         });
     }
